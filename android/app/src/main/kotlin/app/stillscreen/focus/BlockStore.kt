@@ -1,6 +1,9 @@
 package app.stillscreen.focus
 
 import android.content.Context
+import android.content.Intent
+import android.provider.Settings
+import android.telecom.TelecomManager
 
 /** Shared state between the Flutter UI (via MainActivity) and the accessibility service. */
 object BlockStore {
@@ -30,4 +33,21 @@ object BlockStore {
 
     fun isSessionActive(ctx: Context): Boolean =
         System.currentTimeMillis() < prefs(ctx).getLong(KEY_SESSION_END, 0L)
+
+    /**
+     * Apps that must never be blocked: Stillscreen itself, the phone dialer and
+     * system Settings. A strict session can then never lock someone out of
+     * calls (including emergency calls) or of their own phone settings.
+     */
+    fun protectedPackages(ctx: Context): Set<String> {
+        val protectedSet = mutableSetOf(ctx.packageName)
+        (ctx.getSystemService(Context.TELECOM_SERVICE) as? TelecomManager)
+            ?.defaultDialerPackage
+            ?.let { protectedSet.add(it) }
+        ctx.packageManager
+            .resolveActivity(Intent(Settings.ACTION_SETTINGS), 0)
+            ?.activityInfo?.packageName
+            ?.let { protectedSet.add(it) }
+        return protectedSet
+    }
 }

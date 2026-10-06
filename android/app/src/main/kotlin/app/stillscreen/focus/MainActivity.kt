@@ -63,10 +63,11 @@ class MainActivity : FlutterActivity() {
 
     private fun launchableApps(): List<Map<String, String>> {
         val pm = packageManager
+        val protectedApps = BlockStore.protectedPackages(this)
         val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         return pm.queryIntentActivities(launcher, 0)
             .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
-            .filter { it.first != packageName }
+            .filter { it.first !in protectedApps }
             .distinctBy { it.first }
             .sortedBy { it.second.lowercase() }
             .map { mapOf("package" to it.first, "label" to it.second) }

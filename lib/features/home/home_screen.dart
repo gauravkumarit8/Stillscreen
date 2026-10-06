@@ -9,6 +9,8 @@ import '../../core/blocking/blocking_engine.dart';
 import '../../core/models.dart';
 import '../../core/prefs.dart';
 import '../../core/session_log.dart';
+import '../../core/strict.dart';
+import 'end_session_dialog.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -76,6 +78,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final prefs = ref.read(sharedPrefsProvider);
     await prefs.remove(sessionEndKey);
     await prefs.remove(sessionStartKey);
+    await prefs.remove(sessionStrictKey);
     await ref.read(blockingEngineProvider).stopSession();
   }
 
@@ -116,6 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     await engine.startSession(duration);
     await prefs.setInt(sessionStartKey, now.millisecondsSinceEpoch);
     await prefs.setInt(sessionEndKey, now.add(duration).millisecondsSinceEpoch);
+    await prefs.setBool(sessionStrictKey, ref.read(strictModeProvider));
     if (mounted) setState(() {});
   }
 
@@ -129,6 +133,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           );
     }
     if (mounted) setState(() {});
+  }
+
+  Future<void> _requestEnd() async {
+    final confirmed = await confirmEndSession(context);
+    if (confirmed) await _end();
   }
 
   String _format(Duration d) {
@@ -149,6 +158,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final progress = active
         ? (remaining.inSeconds / total.inSeconds).clamp(0.0, 1.0)
         : 1.0;
+    final strictOn = ref.watch(strictModeProvider);
+    final strictActive = active &&
+        (ref.read(sharedPrefsProvider).getBool(sessionStrictKey) ?? false);
+    final lockedUntil = _sessionEnd;
 
     return Scaffold(
       appBar: AppBar(
@@ -224,12 +237,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           const SizedBox(height: 24),
           FilledButton(
-            onPressed: active ? _end : _start,
+            onPressed: active ? (strictActive ? null : _requestEnd) : _start,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 14),
-              child: Text(active ? 'End session' : 'Start focus session'),
+              child: Text(
+                strictActive && lockedUntil != null
+                    ? 'Locked until ${TimeOfDay.fromDateTime(lockedUntil).format(context)}'
+                    : active
+                        ? 'End session'
+                        : 'Start focus session',
+              ),
             ),
           ),
+          if (strictActive) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Strict mode is on. Blocking stays on until the timer ends.',
+              textAlign: TextAlign.center,
+            ),
+          ],
           const SizedBox(height: 16),
           ListTile(
             contentPadding: EdgeInsets.zero,
@@ -239,6 +265,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 : '$blockedCount chosen'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/apps'),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Strict mode'),
+            subtitle: const Text(
+              'Lock each session so it cannot be ended early. '
+              'Sessions are capped at 90 minutes.',
+            ),
+            value: strictOn,
+            onChanged: active
+                ? null
+                : (v) => ref.read(strictModeProvider.notifier).set(v),
           ),
         ],
       ),

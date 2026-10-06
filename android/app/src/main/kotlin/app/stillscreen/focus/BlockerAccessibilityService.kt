@@ -18,6 +18,7 @@ class BlockerAccessibilityService : AccessibilityService() {
 
         if (!BlockStore.isSessionActive(this)) return
         if (pkg !in BlockStore.getBlocked(this)) return
+        if (pkg in BlockStore.protectedPackages(this)) return
 
         val intent = Intent(this, BlockActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
