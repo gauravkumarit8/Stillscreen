@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="accessibility_label">Stillscreen blocker</string>
-    <string name="accessibility_description">Detects which app is open so Stillscreen can show a pause screen for the apps you chose during a focus session. It does not read screen content.</string>
-</resources>

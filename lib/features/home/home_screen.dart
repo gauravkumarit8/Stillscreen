@@ -8,6 +8,7 @@ import '../../app/theme.dart';
 import '../../core/blocking/blocking_engine.dart';
 import '../../core/models.dart';
 import '../../core/prefs.dart';
+import '../../core/session_log.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +23,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   Timer? _ticker;
   bool _permissionGranted = true;
+  bool _settling = false;
   int _pickedMinutes = 25;
 
   @override
@@ -30,6 +32,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     WidgetsBinding.instance.addObserver(this);
     _refreshPermission();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      _settleIfFinished();
       if (mounted) setState(() {});
     });
   }
@@ -57,6 +60,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
   }
 
+  DateTime? get _sessionStart {
+    final ms = ref.read(sharedPrefsProvider).getInt(sessionStartKey);
+    return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
   Duration get _remaining {
     final end = _sessionEnd;
     if (end == null) return Duration.zero;
@@ -64,20 +72,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return left.isNegative ? Duration.zero : left;
   }
 
+  Future<void> _clearSession() async {
+    final prefs = ref.read(sharedPrefsProvider);
+    await prefs.remove(sessionEndKey);
+    await prefs.remove(sessionStartKey);
+    await ref.read(blockingEngineProvider).stopSession();
+  }
+
+  /// Logs a session that ran to its end, including ones that finished while
+  /// the app was closed.
+  Future<void> _settleIfFinished() async {
+    if (_settling) return;
+    final end = _sessionEnd;
+    if (end == null || DateTime.now().isBefore(end)) return;
+
+    _settling = true;
+    try {
+      final start = _sessionStart;
+      await _clearSession();
+      if (start != null) {
+        final minutes = end.difference(start).inMinutes;
+        await ref.read(sessionLogProvider.notifier).add(
+              SessionRecord(start: start, minutes: minutes, completed: true),
+            );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Session complete. $minutes minutes focused.')),
+          );
+        }
+      }
+    } finally {
+      _settling = false;
+    }
+  }
+
   Future<void> _start() async {
     final engine = ref.read(blockingEngineProvider);
+    final prefs = ref.read(sharedPrefsProvider);
     final duration = Duration(minutes: _pickedMinutes);
+    final now = DateTime.now();
+
     await engine.setBlockedApps(ref.read(blockedAppsProvider));
     await engine.startSession(duration);
-    await ref
-        .read(sharedPrefsProvider)
-        .setInt(sessionEndKey, DateTime.now().add(duration).millisecondsSinceEpoch);
+    await prefs.setInt(sessionStartKey, now.millisecondsSinceEpoch);
+    await prefs.setInt(sessionEndKey, now.add(duration).millisecondsSinceEpoch);
     if (mounted) setState(() {});
   }
 
   Future<void> _end() async {
-    await ref.read(blockingEngineProvider).stopSession();
-    await ref.read(sharedPrefsProvider).remove(sessionEndKey);
+    final start = _sessionStart;
+    await _clearSession();
+    if (start != null) {
+      final minutes = DateTime.now().difference(start).inMinutes;
+      await ref.read(sessionLogProvider.notifier).add(
+            SessionRecord(start: start, minutes: minutes, completed: false),
+          );
+    }
     if (mounted) setState(() {});
   }
 
@@ -92,6 +142,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final text = Theme.of(context).textTheme;
     final mode = ref.watch(userModeProvider);
     final blockedCount = ref.watch(blockedAppsProvider).length;
+    final stats = FocusStats(ref.watch(sessionLogProvider));
     final remaining = _remaining;
     final active = remaining > Duration.zero;
     final total = Duration(minutes: _pickedMinutes);
@@ -103,6 +154,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       appBar: AppBar(
         title: const Text('Stillscreen'),
         actions: [
+          IconButton(
+            tooltip: 'Your focus',
+            icon: const Icon(Icons.bar_chart),
+            onPressed: () => context.push('/stats'),
+          ),
           PopupMenuButton<UserMode>(
             tooltip: 'Switch mode',
             icon: const Icon(Icons.swap_horiz),
@@ -119,6 +175,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         children: [
           Text(mode?.tagline ?? '',
               style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          _StreakRow(stats: stats, onTap: () => context.push('/stats')),
           const SizedBox(height: 16),
           if (!_permissionGranted) ...[
             _PermissionNotice(
@@ -183,6 +241,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             onTap: () => context.push('/apps'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StreakRow extends StatelessWidget {
+  const _StreakRow({required this.stats, required this.onTap});
+  final FocusStats stats;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final streak = stats.currentStreak;
+    final label = streak == 0
+        ? 'Start your streak'
+        : streak == 1
+            ? '1 day streak'
+            : '$streak day streak';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: pebble),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.local_fire_department_outlined,
+              color: streak > 0 ? stillTeal : pebble,
+            ),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            const Spacer(),
+            Text('${stats.todayMinutes} of $dailyGoalMinutes min today'),
+          ],
+        ),
       ),
     );
   }
