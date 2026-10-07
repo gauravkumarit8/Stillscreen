@@ -7,6 +7,7 @@ import '../features/home/apps_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/professional/winddown_screen.dart';
+import '../features/reminder/reminder_screen.dart';
 import '../features/stats/stats_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -25,6 +26,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/winddown', builder: (_, __) => const WindDownScreen()),
       GoRoute(path: '/stats', builder: (_, __) => const StatsScreen()),
       GoRoute(path: '/battery', builder: (_, __) => const BatteryGuideScreen()),
+      GoRoute(path: '/reminder', builder: (_, __) => const ReminderScreen()),
     ],
   );
 });

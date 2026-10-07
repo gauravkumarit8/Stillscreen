@@ -19,10 +19,25 @@ class MainActivity : FlutterActivity() {
     // the main thread and names are remembered between calls.
     private val appLoader = Executors.newSingleThreadExecutor()
     private val labelCache = ConcurrentHashMap<String, String>()
+    private var pendingNotificationResult: MethodChannel.Result? = null
 
     override fun onDestroy() {
         appLoader.shutdown()
         super.onDestroy()
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQUEST_NOTIFICATIONS) {
+            pendingNotificationResult?.success(
+                grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED
+            )
+            pendingNotificationResult = null
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -106,6 +121,45 @@ class MainActivity : FlutterActivity() {
 
                     "openAppInfo" -> {
                         openAppInfo()
+                        result.success(null)
+                    }
+
+                    "requestNotificationPermission" -> {
+                        val granted = Build.VERSION.SDK_INT < 33 ||
+                            androidx.core.content.ContextCompat.checkSelfPermission(
+                                this, NOTIFICATION_PERMISSION
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                        if (granted) {
+                            result.success(true)
+                        } else {
+                            pendingNotificationResult?.success(false)
+                            pendingNotificationResult = result
+                            androidx.core.app.ActivityCompat.requestPermissions(
+                                this, arrayOf(NOTIFICATION_PERMISSION), REQUEST_NOTIFICATIONS
+                            )
+                        }
+                    }
+
+                    "notificationsAllowed" -> result.success(
+                        androidx.core.app.NotificationManagerCompat.from(this)
+                            .areNotificationsEnabled()
+                    )
+
+                    "configureReminder" -> {
+                        val args = call.arguments as Map<*, *>
+                        Reminder.configure(
+                            this,
+                            enabled = args["enabled"] as? Boolean ?: false,
+                            minuteOfDay = (args["minuteOfDay"] as? Number)?.toInt() ?: 18 * 60,
+                            title = args["title"] as? String ?: "Time to focus",
+                            body = args["body"] as? String
+                                ?: "A short session keeps your streak going."
+                        )
+                        result.success(null)
+                    }
+
+                    "markGoalReached" -> {
+                        Reminder.markGoalReached(this, call.arguments as? String ?: "")
                         result.success(null)
                     }
 
@@ -212,5 +266,7 @@ class MainActivity : FlutterActivity() {
 
     companion object {
         const val CHANNEL = "app.stillscreen.focus/blocking"
+        const val NOTIFICATION_PERMISSION = "android.permission.POST_NOTIFICATIONS"
+        const val REQUEST_NOTIFICATIONS = 7001
     }
 }

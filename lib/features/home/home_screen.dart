@@ -10,6 +10,9 @@ import '../../core/blocking/blocking_engine.dart';
 import '../../core/installed_apps.dart';
 import '../../core/models.dart';
 import '../../core/prefs.dart';
+import '../../core/reminder.dart';
+import '../../core/reminder_service.dart';
+import '../../core/winddown.dart';
 import '../../core/session_log.dart';
 import '../../core/strict.dart';
 import '../battery/battery_guide_card.dart';
@@ -42,6 +45,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _refreshPermission();
     // Start loading the app list now so the picker opens instantly.
     Future.microtask(() => ref.read(installedAppsProvider));
+    Future.microtask(_syncReminder);
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       _settleIfFinished();
       if (mounted) setState(() {});
@@ -81,6 +85,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (end == null) return Duration.zero;
     final left = end.difference(DateTime.now());
     return left.isNegative ? Duration.zero : left;
+  }
+
+  /// Re-arms the daily reminder (phones forget alarms after a force-stop) and
+  /// tells it if today's goal is already done.
+  Future<void> _syncReminder() async {
+    await ref.read(reminderProvider.notifier).resync();
+    final stats = FocusStats(ref.read(sessionLogProvider));
+    if (stats.todayMinutes >= dailyGoalMinutes) {
+      await ref
+          .read(reminderServiceProvider)
+          .markGoalReached(dayKey(DateTime.now()));
+    }
   }
 
   Future<void> _clearSession() async {
@@ -161,6 +177,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final mode = ref.watch(userModeProvider);
     final blockedCount = ref.watch(blockedAppsProvider).length;
     final stats = FocusStats(ref.watch(sessionLogProvider));
+    final reminder = ref.watch(reminderProvider);
+
+    // Quiet the reminder for the rest of the day once the goal is reached.
+    ref.listen<List<SessionRecord>>(sessionLogProvider, (_, next) {
+      if (FocusStats(next).todayMinutes >= dailyGoalMinutes) {
+        ref.read(reminderServiceProvider).markGoalReached(dayKey(DateTime.now()));
+      }
+    });
+    // New mode means new reminder wording.
+    ref.listen<UserMode?>(userModeProvider, (_, __) {
+      ref.read(reminderProvider.notifier).resync();
+    });
     final remaining = _remaining;
     final active = remaining > Duration.zero;
     final total = Duration(minutes: _pickedMinutes);
@@ -303,6 +331,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             onChanged: active
                 ? null
                 : (v) => ref.read(strictModeProvider.notifier).set(v),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Daily reminder'),
+            subtitle: Text(reminder.enabled
+                ? formatMinute(context, reminder.minuteOfDay)
+                : 'Off'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/reminder'),
           ),
         ],
       ),
