@@ -10,8 +10,20 @@ import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
+
+    // Listing apps is slow (each app name is a resource lookup), so it runs off
+    // the main thread and names are remembered between calls.
+    private val appLoader = Executors.newSingleThreadExecutor()
+    private val labelCache = ConcurrentHashMap<String, String>()
+
+    override fun onDestroy() {
+        appLoader.shutdown()
+        super.onDestroy()
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -29,7 +41,20 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
 
-                    "getInstalledApps" -> result.success(launchableApps())
+                    "getInstalledApps" -> appLoader.execute {
+                        val apps = try {
+                            launchableApps()
+                        } catch (e: Exception) {
+                            null
+                        }
+                        runOnUiThread {
+                            if (apps != null) {
+                                result.success(apps)
+                            } else {
+                                result.error("apps_failed", "Could not list apps", null)
+                            }
+                        }
+                    }
 
                     "setBlockedApps" -> {
                         val packages = (call.arguments as? List<*>)
@@ -103,16 +128,24 @@ class MainActivity : FlutterActivity() {
         return enabled.split(':').any { ComponentName.unflattenFromString(it) == ours }
     }
 
-    private fun launchableApps(): List<Map<String, String>> {
+    private fun launchableApps(): List<Map<String, Any>> {
         val pm = packageManager
         val protectedApps = BlockStore.protectedPackages(this)
         val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
         return pm.queryIntentActivities(launcher, 0)
-            .map { it.activityInfo.packageName to it.loadLabel(pm).toString() }
-            .filter { it.first !in protectedApps }
-            .distinctBy { it.first }
-            .sortedBy { it.second.lowercase() }
-            .map { mapOf("package" to it.first, "label" to it.second) }
+            .filter { it.activityInfo.packageName !in protectedApps }
+            .distinctBy { it.activityInfo.packageName }
+            .map { info ->
+                val pkg = info.activityInfo.packageName
+                val label = labelCache.getOrPut(pkg) { info.loadLabel(pm).toString() }
+                val category = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    info.activityInfo.applicationInfo.category
+                } else {
+                    -1
+                }
+                mapOf("package" to pkg, "label" to label, "category" to category)
+            }
+            .sortedBy { (it["label"] as String).lowercase() }
     }
 
     private fun tryStart(intent: Intent): Boolean = try {

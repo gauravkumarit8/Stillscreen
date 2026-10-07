@@ -3,9 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class InstalledApp {
-  const InstalledApp({required this.package, required this.label});
+  const InstalledApp({
+    required this.package,
+    required this.label,
+    this.category = -1,
+  });
   final String package;
   final String label;
+
+  /// Android's ApplicationInfo.category, or -1 when unknown.
+  final int category;
 }
 
 /// Platform-neutral blocking API. The UI only talks to this interface;
@@ -46,6 +53,7 @@ class AndroidBlockingEngine implements BlockingEngine {
         .map((m) => InstalledApp(
               package: m['package'] as String,
               label: m['label'] as String,
+              category: (m['category'] as num?)?.toInt() ?? -1,
             ))
         .toList();
   }
@@ -97,6 +105,11 @@ class PreviewBlockingEngine implements BlockingEngine {
         InstalledApp(package: 'com.google.android.youtube', label: 'YouTube'),
         InstalledApp(package: 'com.zhiliaoapp.musically', label: 'TikTok'),
         InstalledApp(package: 'com.snapchat.android', label: 'Snapchat'),
+        InstalledApp(package: 'com.netflix.mediaclient', label: 'Netflix'),
+        InstalledApp(package: 'com.whatsapp', label: 'WhatsApp'),
+        InstalledApp(package: 'com.Slack', label: 'Slack'),
+        InstalledApp(package: 'com.example.arcade', label: 'Arcade Run', category: 0),
+        InstalledApp(package: 'com.example.notes', label: 'Notes'),
       ];
 
   @override

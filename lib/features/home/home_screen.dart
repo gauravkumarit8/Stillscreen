@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme.dart';
 import '../../core/battery_guide.dart';
 import '../../core/blocking/blocking_engine.dart';
+import '../../core/installed_apps.dart';
 import '../../core/models.dart';
 import '../../core/prefs.dart';
 import '../../core/session_log.dart';
@@ -38,6 +39,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _refreshPermission();
+    // Start loading the app list now so the picker opens instantly.
+    Future.microtask(() => ref.read(installedAppsProvider));
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       _settleIfFinished();
       if (mounted) setState(() {});

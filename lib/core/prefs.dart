@@ -42,6 +42,19 @@ class BlockedAppsNotifier extends Notifier<Set<String>> {
     await ref.read(sharedPrefsProvider).setStringList(_key, next.toList());
     await ref.read(blockingEngineProvider).setBlockedApps(next);
   }
+
+  /// Selects or deselects many apps with a single save and a single native call.
+  Future<void> setMany(Iterable<String> packages, {required bool selected}) async {
+    final next = {...state};
+    if (selected) {
+      next.addAll(packages);
+    } else {
+      next.removeAll(packages);
+    }
+    state = next;
+    await ref.read(sharedPrefsProvider).setStringList(_key, next.toList());
+    await ref.read(blockingEngineProvider).setBlockedApps(next);
+  }
 }
 
 final blockedAppsProvider =
