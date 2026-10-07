@@ -17,6 +17,13 @@ abstract class BlockingEngine {
   Future<void> setBlockedApps(Set<String> packages);
   Future<void> startSession(Duration duration);
   Future<void> stopSession();
+  Future<void> setWindDown({
+    required bool enabled,
+    required Set<int> days,
+    required int startMinute,
+    required int endMinute,
+    required Set<String> packages,
+  });
 }
 
 class AndroidBlockingEngine implements BlockingEngine {
@@ -57,6 +64,23 @@ class AndroidBlockingEngine implements BlockingEngine {
   Future<void> stopSession() async {
     await _channel.invokeMethod<void>('stopSession');
   }
+
+  @override
+  Future<void> setWindDown({
+    required bool enabled,
+    required Set<int> days,
+    required int startMinute,
+    required int endMinute,
+    required Set<String> packages,
+  }) async {
+    await _channel.invokeMethod<void>('setWindDown', {
+      'enabled': enabled,
+      'days': days.toList(),
+      'startMinute': startMinute,
+      'endMinute': endMinute,
+      'packages': packages.toList(),
+    });
+  }
 }
 
 /// Used on web / desktop so the UI can be previewed without real blocking.
@@ -83,6 +107,15 @@ class PreviewBlockingEngine implements BlockingEngine {
 
   @override
   Future<void> stopSession() async {}
+
+  @override
+  Future<void> setWindDown({
+    required bool enabled,
+    required Set<int> days,
+    required int startMinute,
+    required int endMinute,
+    required Set<String> packages,
+  }) async {}
 }
 
 final blockingEngineProvider = Provider<BlockingEngine>((ref) {

@@ -15,15 +15,21 @@ class BlockActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val windDown = intent.getStringExtra(EXTRA_REASON) == REASON_WIND_DOWN
+
         val message = TextView(this).apply {
-            text = "Take a breath.\nThis app is blocked during your focus session."
+            text = if (windDown) {
+                "Time to switch off.\nThis app is paused until your work hours start."
+            } else {
+                "Take a breath.\nThis app is blocked during your focus session."
+            }
             textSize = 22f
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             setPadding(64, 64, 64, 64)
         }
         val button = Button(this).apply {
-            text = "Back to focus"
+            text = if (windDown) "Okay" else "Back to focus"
             setOnClickListener { goHome() }
         }
         val root = LinearLayout(this).apply {
@@ -36,7 +42,7 @@ class BlockActivity : Activity() {
         setContentView(root)
     }
 
-    @Deprecated("Back always returns home while a session is active")
+    @Deprecated("Back always returns home while blocking is active")
     override fun onBackPressed() = goHome()
 
     private fun goHome() {
@@ -50,5 +56,8 @@ class BlockActivity : Activity() {
 
     companion object {
         const val EXTRA_PACKAGE = "blocked_package"
+        const val EXTRA_REASON = "block_reason"
+        const val REASON_FOCUS = "focus"
+        const val REASON_WIND_DOWN = "wind_down"
     }
 }

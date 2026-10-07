@@ -10,6 +10,8 @@ import '../../core/models.dart';
 import '../../core/prefs.dart';
 import '../../core/session_log.dart';
 import '../../core/strict.dart';
+import '../professional/winddown_card.dart';
+import '../student/exam_card.dart';
 import 'end_session_dialog.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -190,7 +192,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           _StreakRow(stats: stats, onTap: () => context.push('/stats')),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          if (mode == UserMode.student) ...[
+            const ExamCard(),
+            const SizedBox(height: 16),
+          ],
+          if (mode == UserMode.professional) ...[
+            const WindDownCard(),
+            const SizedBox(height: 16),
+          ],
           if (!_permissionGranted) ...[
             _PermissionNotice(
               onTap: () =>

@@ -42,6 +42,21 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
 
+                    "setWindDown" -> {
+                        val args = call.arguments as Map<*, *>
+                        BlockStore.setWindDown(
+                            this,
+                            enabled = args["enabled"] as? Boolean ?: false,
+                            days = (args["days"] as? List<*>)
+                                ?.filterIsInstance<Int>()?.toSet() ?: emptySet(),
+                            startMinute = (args["startMinute"] as? Number)?.toInt() ?: 0,
+                            endMinute = (args["endMinute"] as? Number)?.toInt() ?: 0,
+                            packages = (args["packages"] as? List<*>)
+                                ?.filterIsInstance<String>()?.toSet() ?: emptySet()
+                        )
+                        result.success(null)
+                    }
+
                     "stopSession" -> {
                         BlockStore.stopSession(this)
                         result.success(null)
