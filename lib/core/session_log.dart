@@ -60,6 +60,14 @@ class SessionLogNotifier extends Notifier<List<SessionRecord>> {
         .read(sharedPrefsProvider)
         .setString(_key, jsonEncode(state.map((e) => e.toJson()).toList()));
   }
+
+  /// Replaces the whole history. Used by the debug-only demo data menu.
+  Future<void> replaceAll(List<SessionRecord> records) async {
+    state = List.of(records);
+    await ref
+        .read(sharedPrefsProvider)
+        .setString(_key, jsonEncode(state.map((e) => e.toJson()).toList()));
+  }
 }
 
 final sessionLogProvider =

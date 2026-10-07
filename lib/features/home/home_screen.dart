@@ -16,6 +16,7 @@ import '../battery/battery_guide_card.dart';
 import '../professional/winddown_card.dart';
 import '../student/exam_card.dart';
 import 'accessibility_disclosure.dart';
+import 'demo_menu.dart';
 import 'end_session_dialog.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -175,6 +176,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       appBar: AppBar(
         title: const Text('Stillscreen'),
         actions: [
+          const DemoMenu(),
           IconButton(
             tooltip: 'Your focus',
             icon: const Icon(Icons.bar_chart),
