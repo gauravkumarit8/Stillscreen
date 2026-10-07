@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- No INTERNET permission yet: the app makes no network calls. Add it back
+         when Supabase sync is introduced, and update the privacy policy and the
+         Play Data safety form at the same time. -->
 
     <queries>
         <!-- Lets the app list launchable apps without QUERY_ALL_PACKAGES. -->

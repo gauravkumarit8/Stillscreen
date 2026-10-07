@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/prefs.dart';
+import '../features/battery/battery_guide_screen.dart';
 import '../features/home/apps_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
@@ -23,6 +24,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(path: '/winddown', builder: (_, __) => const WindDownScreen()),
       GoRoute(path: '/stats', builder: (_, __) => const StatsScreen()),
+      GoRoute(path: '/battery', builder: (_, __) => const BatteryGuideScreen()),
     ],
   );
 });

@@ -1,7 +1,11 @@
 package app.stillscreen.focus
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -57,6 +61,29 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
 
+                    "getManufacturer" -> result.success(Build.MANUFACTURER ?: "")
+
+                    "isBatteryOptimizationIgnored" -> {
+                        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+                        result.success(pm.isIgnoringBatteryOptimizations(packageName))
+                    }
+
+                    "openBatterySettings" -> {
+                        // Opens the system list, so no special permission is needed.
+                        val opened = tryStart(
+                            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                        )
+                        if (!opened) openAppInfo()
+                        result.success(null)
+                    }
+
+                    "openAutostartSettings" -> result.success(openAutostart())
+
+                    "openAppInfo" -> {
+                        openAppInfo()
+                        result.success(null)
+                    }
+
                     "stopSession" -> {
                         BlockStore.stopSession(this)
                         result.success(null)
@@ -86,6 +113,35 @@ class MainActivity : FlutterActivity() {
             .distinctBy { it.first }
             .sortedBy { it.second.lowercase() }
             .map { mapOf("package" to it.first, "label" to it.second) }
+    }
+
+    private fun tryStart(intent: Intent): Boolean = try {
+        startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        true
+    } catch (e: Exception) {
+        false
+    }
+
+    private fun openAppInfo(): Boolean = tryStart(
+        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+    )
+
+    /**
+     * Best effort: these manufacturer screens are not part of Android and can
+     * change between phone models and software versions. Returns false when
+     * none opened, and the Flutter side falls back to app info.
+     */
+    private fun openAutostart(): Boolean {
+        val candidates = listOf(
+            "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+            "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+            "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
+            "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+            "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"
+        )
+        return candidates.any { (pkg, cls) ->
+            tryStart(Intent().setComponent(ComponentName(pkg, cls)))
+        }
     }
 
     companion object {

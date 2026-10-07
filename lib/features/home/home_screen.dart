@@ -5,13 +5,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../core/battery_guide.dart';
 import '../../core/blocking/blocking_engine.dart';
 import '../../core/models.dart';
 import '../../core/prefs.dart';
 import '../../core/session_log.dart';
 import '../../core/strict.dart';
+import '../battery/battery_guide_card.dart';
 import '../professional/winddown_card.dart';
 import '../student/exam_card.dart';
+import 'accessibility_disclosure.dart';
 import 'end_session_dialog.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -203,10 +206,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ],
           if (!_permissionGranted) ...[
             _PermissionNotice(
-              onTap: () =>
-                  ref.read(blockingEngineProvider).openPermissionSettings(),
+              onTap: () async {
+                final agreed = await confirmAccessibilityDisclosure(context);
+                if (agreed) {
+                  await ref.read(blockingEngineProvider).openPermissionSettings();
+                }
+              },
             ),
             const SizedBox(height: 24),
+          ],
+          if (_permissionGranted && !ref.watch(batteryGuideDoneProvider)) ...[
+            const BatteryGuideCard(),
+            const SizedBox(height: 16),
           ],
           Center(
             child: SizedBox(
