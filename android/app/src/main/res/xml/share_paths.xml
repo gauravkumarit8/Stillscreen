@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only this one cache folder can be handed to other apps, and only when the
+     user taps Share. -->
+<paths>
+    <cache-path name="share" path="share/" />
+</paths>

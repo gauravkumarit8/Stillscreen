@@ -109,6 +109,22 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
 
+                    "shareImage" -> {
+                        val args = call.arguments as Map<*, *>
+                        val bytes = args["bytes"] as? ByteArray
+                        val text = args["text"] as? String ?: ""
+                        if (bytes == null) {
+                            result.error("no_image", "No image data", null)
+                        } else {
+                            try {
+                                shareImage(bytes, text)
+                                result.success(null)
+                            } catch (e: Exception) {
+                                result.error("share_failed", e.message, null)
+                            }
+                        }
+                    }
+
                     "stopSession" -> {
                         BlockStore.stopSession(this)
                         result.success(null)
@@ -146,6 +162,23 @@ class MainActivity : FlutterActivity() {
                 mapOf("package" to pkg, "label" to label, "category" to category)
             }
             .sortedBy { (it["label"] as String).lowercase() }
+    }
+
+    /** Saves the image to our cache and opens Android's share sheet. */
+    private fun shareImage(bytes: ByteArray, text: String) {
+        val dir = java.io.File(cacheDir, "share").apply { mkdirs() }
+        val file = java.io.File(dir, "stillscreen-streak.png")
+        file.writeBytes(bytes)
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            this, "$packageName.fileprovider", file
+        )
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "image/png"
+            putExtra(Intent.EXTRA_STREAM, uri)
+            if (text.isNotEmpty()) putExtra(Intent.EXTRA_TEXT, text)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(Intent.createChooser(send, "Share your streak"))
     }
 
     private fun tryStart(intent: Intent): Boolean = try {

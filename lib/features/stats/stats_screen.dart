@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
 import '../../core/session_log.dart';
+import 'streak_share_dialog.dart';
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -26,7 +27,26 @@ class StatsScreen extends ConsumerWidget {
         (stats.todayMinutes / dailyGoalMinutes).clamp(0.0, 1.0);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Your focus')),
+      appBar: AppBar(
+        title: const Text('Your focus'),
+        actions: [
+          IconButton(
+            tooltip: 'Share your streak',
+            icon: const Icon(Icons.ios_share),
+            onPressed: () {
+              if (stats.totalMinutes == 0) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Complete a focus session first, then share.'),
+                  ),
+                );
+                return;
+              }
+              showStreakShareDialog(context, stats);
+            },
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
