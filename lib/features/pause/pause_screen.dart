@@ -40,7 +40,7 @@ class PauseScreen extends ConsumerWidget {
             children: [
               for (final s in pauseSecondsOptions)
                 ChoiceChip(
-                  label: Text('$s seconds'),
+                  label: Text('$s s'),
                   selected: config.seconds == s,
                   onSelected: (_) => notifier.update(config.copyWith(seconds: s)),
                 ),
@@ -57,7 +57,7 @@ class PauseScreen extends ConsumerWidget {
             children: [
               for (final m in graceMinutesOptions)
                 ChoiceChip(
-                  label: Text('$m minutes'),
+                  label: Text('$m min'),
                   selected: config.graceMinutes == m,
                   onSelected: (_) =>
                       notifier.update(config.copyWith(graceMinutes: m)),

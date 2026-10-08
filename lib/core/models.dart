@@ -3,18 +3,18 @@ enum UserMode {
     'Student',
     'Study without the scroll.',
     [
-      'Exam countdown and study streaks',
-      'Focus groups and friend leaderboards',
-      'Study-only YouTube and websites',
+      'Exam countdown and daily streaks',
+      'Focus sessions with strict mode',
+      'Mindful pause before distracting apps',
     ],
   ),
   professional(
     'Working professional',
     'Protect your deep work.',
     [
-      'Focus blocks around your calendar',
-      'Work hours with an end-of-day wind-down',
-      'Private weekly focus reports',
+      'End-of-day wind-down for work apps',
+      'Focus sessions and daily streaks',
+      'Mindful pause before distracting apps',
     ],
   );
 

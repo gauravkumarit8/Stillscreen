@@ -76,7 +76,9 @@ class StatsScreen extends ConsumerWidget {
             borderRadius: BorderRadius.circular(5),
           ),
           const SizedBox(height: 8),
-          Text('${stats.todayMinutes} of $dailyGoalMinutes minutes to keep your streak'),
+          Text(stats.todayMinutes >= dailyGoalMinutes
+              ? 'Goal reached. ${stats.todayMinutes} minutes focused today.'
+              : '${stats.todayMinutes} of $dailyGoalMinutes minutes to keep your streak'),
           const SizedBox(height: 28),
           ref.watch(pauseSummaryProvider).maybeWhen(
                 data: (s) => s.shownWeek == 0

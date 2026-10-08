@@ -389,7 +389,9 @@ class _StreakRow extends StatelessWidget {
             const SizedBox(width: 8),
             Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
             const Spacer(),
-            Text('${stats.todayMinutes} of $dailyGoalMinutes min today'),
+            Text(stats.todayMinutes >= dailyGoalMinutes
+                ? 'Goal reached'
+                : '${stats.todayMinutes} of $dailyGoalMinutes min today'),
           ],
         ),
       ),
