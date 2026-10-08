@@ -163,6 +163,21 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
 
+                    "setMindfulPause" -> {
+                        val args = call.arguments as Map<*, *>
+                        PauseStore.configure(
+                            this,
+                            enabled = args["enabled"] as? Boolean ?: false,
+                            seconds = (args["seconds"] as? Number)?.toInt() ?: 10,
+                            graceMinutes = (args["graceMinutes"] as? Number)?.toInt() ?: 5,
+                            packages = (args["packages"] as? List<*>)
+                                ?.filterIsInstance<String>()?.toSet() ?: emptySet()
+                        )
+                        result.success(null)
+                    }
+
+                    "getPauseSummary" -> result.success(PauseStore.summary(this))
+
                     "shareImage" -> {
                         val args = call.arguments as Map<*, *>
                         val bytes = args["bytes"] as? ByteArray

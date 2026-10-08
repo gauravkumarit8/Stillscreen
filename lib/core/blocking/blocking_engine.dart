@@ -31,6 +31,13 @@ abstract class BlockingEngine {
     required int endMinute,
     required Set<String> packages,
   });
+  Future<void> setMindfulPause({
+    required bool enabled,
+    required int seconds,
+    required int graceMinutes,
+    required Set<String> packages,
+  });
+  Future<Map<String, int>> getPauseSummary();
 }
 
 class AndroidBlockingEngine implements BlockingEngine {
@@ -89,6 +96,26 @@ class AndroidBlockingEngine implements BlockingEngine {
       'packages': packages.toList(),
     });
   }
+
+  @override
+  Future<void> setMindfulPause({
+    required bool enabled,
+    required int seconds,
+    required int graceMinutes,
+    required Set<String> packages,
+  }) async {
+    await _channel.invokeMethod<void>('setMindfulPause', {
+      'enabled': enabled,
+      'seconds': seconds,
+      'graceMinutes': graceMinutes,
+      'packages': packages.toList(),
+    });
+  }
+
+  @override
+  Future<Map<String, int>> getPauseSummary() async {
+    return await _channel.invokeMapMethod<String, int>('getPauseSummary') ?? {};
+  }
 }
 
 /// Used on web / desktop so the UI can be previewed without real blocking.
@@ -129,6 +156,17 @@ class PreviewBlockingEngine implements BlockingEngine {
     required int endMinute,
     required Set<String> packages,
   }) async {}
+
+  @override
+  Future<void> setMindfulPause({
+    required bool enabled,
+    required int seconds,
+    required int graceMinutes,
+    required Set<String> packages,
+  }) async {}
+
+  @override
+  Future<Map<String, int>> getPauseSummary() async => const {};
 }
 
 final blockingEngineProvider = Provider<BlockingEngine>((ref) {

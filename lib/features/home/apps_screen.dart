@@ -4,15 +4,69 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_packs.dart';
 import '../../core/blocking/blocking_engine.dart';
 import '../../core/installed_apps.dart';
+import '../../core/pause.dart';
 import '../../core/prefs.dart';
 import '../../core/winddown.dart';
 
-/// Picker for installed apps. With [windDown] it edits the work-apps list used
-/// by the end-of-day wind-down instead of the focus-session list.
-class AppsScreen extends ConsumerStatefulWidget {
-  const AppsScreen({super.key, this.windDown = false});
+/// Which list of apps the picker edits.
+enum AppListKind { focus, windDown, pause }
 
-  final bool windDown;
+String _titleFor(AppListKind kind) => switch (kind) {
+      AppListKind.focus => 'Apps to block',
+      AppListKind.windDown => 'Work apps to pause',
+      AppListKind.pause => 'Apps to pause',
+    };
+
+List<AppPack> _packsFor(AppListKind kind) => switch (kind) {
+      AppListKind.focus => focusPacks,
+      AppListKind.windDown => windDownPacks,
+      AppListKind.pause => pausePacks,
+    };
+
+ProviderListenable<Set<String>> _sourceFor(AppListKind kind) => switch (kind) {
+      AppListKind.focus => blockedAppsProvider,
+      AppListKind.windDown => windDownAppsProvider,
+      AppListKind.pause => pauseAppsProvider,
+    };
+
+Future<void> _toggle(WidgetRef ref, AppListKind kind, String package) {
+  switch (kind) {
+    case AppListKind.focus:
+      return ref.read(blockedAppsProvider.notifier).toggle(package);
+    case AppListKind.windDown:
+      return ref.read(windDownAppsProvider.notifier).toggle(package);
+    case AppListKind.pause:
+      return ref.read(pauseAppsProvider.notifier).toggle(package);
+  }
+}
+
+Future<void> _setMany(
+  WidgetRef ref,
+  AppListKind kind,
+  Iterable<String> packages,
+  bool selected,
+) {
+  switch (kind) {
+    case AppListKind.focus:
+      return ref
+          .read(blockedAppsProvider.notifier)
+          .setMany(packages, selected: selected);
+    case AppListKind.windDown:
+      return ref
+          .read(windDownAppsProvider.notifier)
+          .setMany(packages, selected: selected);
+    case AppListKind.pause:
+      return ref
+          .read(pauseAppsProvider.notifier)
+          .setMany(packages, selected: selected);
+  }
+}
+
+/// Picker for installed apps, with search, select all and one-tap packs.
+class AppsScreen extends ConsumerStatefulWidget {
+  const AppsScreen({super.key, this.kind = AppListKind.focus});
+
+  final AppListKind kind;
 
   @override
   ConsumerState<AppsScreen> createState() => _AppsScreenState();
@@ -21,22 +75,13 @@ class AppsScreen extends ConsumerStatefulWidget {
 class _AppsScreenState extends ConsumerState<AppsScreen> {
   String _query = '';
 
-  ProviderListenable<Set<String>> get _source =>
-      widget.windDown ? windDownAppsProvider : blockedAppsProvider;
-
-  Future<void> _setMany(Iterable<String> packages, bool selected) {
-    return widget.windDown
-        ? ref.read(windDownAppsProvider.notifier).setMany(packages, selected: selected)
-        : ref.read(blockedAppsProvider.notifier).setMany(packages, selected: selected);
-  }
-
   @override
   Widget build(BuildContext context) {
     final apps = ref.watch(installedAppsProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.windDown ? 'Work apps to pause' : 'Apps to block'),
+        title: Text(_titleFor(widget.kind)),
         actions: [
           IconButton(
             tooltip: 'Refresh app list',
@@ -59,7 +104,7 @@ class _AppsScreenState extends ConsumerState<AppsScreen> {
   }
 
   Widget _buildList(List<InstalledApp> all) {
-    final selected = ref.watch(_source);
+    final selected = ref.watch(_sourceFor(widget.kind));
     final query = _query.trim().toLowerCase();
 
     final visible = query.isEmpty
@@ -71,7 +116,7 @@ class _AppsScreenState extends ConsumerState<AppsScreen> {
 
     // Only show packs that have at least one installed app.
     final packs = <(AppPack, List<String>)>[
-      for (final pack in widget.windDown ? windDownPacks : focusPacks)
+      for (final pack in _packsFor(widget.kind))
         (pack, all.where(pack.matches).map((a) => a.package).toList()),
     ].where((entry) => entry.$2.isNotEmpty).toList();
 
@@ -104,7 +149,8 @@ class _AppsScreenState extends ConsumerState<AppsScreen> {
                   avatar: Icon(pack.icon, size: 18),
                   label: Text('${pack.name} (${packages.length})'),
                   selected: packSelected,
-                  onSelected: (_) => _setMany(packages, !packSelected),
+                  onSelected: (_) =>
+                      _setMany(ref, widget.kind, packages, !packSelected),
                 );
               },
             ),
@@ -114,7 +160,7 @@ class _AppsScreenState extends ConsumerState<AppsScreen> {
           value: allSelected ? true : (selectedVisible == 0 ? false : null),
           onChanged: visible.isEmpty
               ? null
-              : (_) => _setMany(visiblePackages, !allSelected),
+              : (_) => _setMany(ref, widget.kind, visiblePackages, !allSelected),
           title: Text(query.isEmpty
               ? 'Select all'
               : 'Select all matching "${_query.trim()}"'),
@@ -129,7 +175,7 @@ class _AppsScreenState extends ConsumerState<AppsScreen> {
                   itemBuilder: (_, i) => _AppTile(
                     key: ValueKey(visible[i].package),
                     app: visible[i],
-                    windDown: widget.windDown,
+                    kind: widget.kind,
                   ),
                 ),
         ),
@@ -141,23 +187,20 @@ class _AppsScreenState extends ConsumerState<AppsScreen> {
 /// Watches only its own selection state, so ticking one app rebuilds one row
 /// instead of the whole list.
 class _AppTile extends ConsumerWidget {
-  const _AppTile({super.key, required this.app, required this.windDown});
+  const _AppTile({super.key, required this.app, required this.kind});
 
   final InstalledApp app;
-  final bool windDown;
+  final AppListKind kind;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ProviderListenable<Set<String>> source =
-        windDown ? windDownAppsProvider : blockedAppsProvider;
-    final isSelected = ref.watch(source.select((s) => s.contains(app.package)));
+    final isSelected =
+        ref.watch(_sourceFor(kind).select((s) => s.contains(app.package)));
 
     return CheckboxListTile(
       title: Text(app.label),
       value: isSelected,
-      onChanged: (_) => windDown
-          ? ref.read(windDownAppsProvider.notifier).toggle(app.package)
-          : ref.read(blockedAppsProvider.notifier).toggle(app.package),
+      onChanged: (_) => _toggle(ref, kind, app.package),
     );
   }
 }

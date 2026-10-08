@@ -135,3 +135,4 @@ const workPack = AppPack(
 
 const focusPacks = [socialPack, videoPack, gamesPack, messagingPack, shoppingPack];
 const windDownPacks = [workPack, messagingPack, socialPack];
+const pausePacks = [socialPack, videoPack, gamesPack, shoppingPack];

@@ -50,6 +50,15 @@
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
 
+        <!-- Mindful pause: a short breathing screen before chosen apps. -->
+        <activity
+            android:name=".PauseActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+
         <service
             android:name=".BlockerAccessibilityService"
             android:exported="false"

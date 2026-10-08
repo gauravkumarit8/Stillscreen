@@ -11,6 +11,7 @@ import '../../core/installed_apps.dart';
 import '../../core/models.dart';
 import '../../core/prefs.dart';
 import '../../core/reminder.dart';
+import '../../core/pause.dart';
 import '../../core/reminder_service.dart';
 import '../../core/winddown.dart';
 import '../../core/session_log.dart';
@@ -178,6 +179,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final blockedCount = ref.watch(blockedAppsProvider).length;
     final stats = FocusStats(ref.watch(sessionLogProvider));
     final reminder = ref.watch(reminderProvider);
+    final pauseConfig = ref.watch(pauseConfigProvider);
+    final pauseAppCount = ref.watch(pauseAppsProvider).length;
 
     // Quiet the reminder for the rest of the day once the goal is reached.
     ref.listen<List<SessionRecord>>(sessionLogProvider, (_, next) {
@@ -331,6 +334,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             onChanged: active
                 ? null
                 : (v) => ref.read(strictModeProvider.notifier).set(v),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Mindful pause'),
+            subtitle: Text(pauseSubtitle(pauseConfig, pauseAppCount)),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/pause'),
           ),
           ListTile(
             contentPadding: EdgeInsets.zero,

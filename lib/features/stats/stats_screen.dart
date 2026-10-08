@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
+import '../../core/pause.dart';
 import '../../core/session_log.dart';
 import 'streak_share_dialog.dart';
 
@@ -77,6 +78,15 @@ class StatsScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           Text('${stats.todayMinutes} of $dailyGoalMinutes minutes to keep your streak'),
           const SizedBox(height: 28),
+          ref.watch(pauseSummaryProvider).maybeWhen(
+                data: (s) => s.shownWeek == 0
+                    ? const SizedBox.shrink()
+                    : Padding(
+                        padding: const EdgeInsets.only(bottom: 28),
+                        child: _PauseCard(summary: s),
+                      ),
+                orElse: () => const SizedBox.shrink(),
+              ),
           Text('Last 7 days',
               style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
@@ -156,6 +166,42 @@ class _WeekBars extends StatelessWidget {
                 ],
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PauseCard extends StatelessWidget {
+  const _PauseCard({required this.summary});
+
+  final PauseSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final times = summary.resistedWeek == 1 ? '1 time' : '${summary.resistedWeek} times';
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: pebble),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Mindful pauses', style: text.bodyMedium),
+          const SizedBox(height: 4),
+          Text(
+            'You chose not to open an app $times this week',
+            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Paused ${summary.shownWeek} times this week, '
+            '${summary.resistedToday} walked away today.',
+          ),
         ],
       ),
     );

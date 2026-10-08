@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 const accessibilityDisclosure =
     'Stillscreen uses Android\'s Accessibility Service to detect which app is '
     'currently in front. This lets it show a pause screen over the apps you '
-    'choose to block, during focus sessions and during your wind-down hours.\n\n'
+    'choose to block, during focus sessions and your wind-down hours, and a '
+    'short mindful pause before apps you choose for that feature.\n\n'
     'Stillscreen does not read what is on your screen, the text you type, or '
     'your passwords. It does not send this information anywhere.';
 

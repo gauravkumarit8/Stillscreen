@@ -9,7 +9,8 @@ honest and minimal: it should never ask for more than it needs.
 
 Stillscreen is a focus and app-blocking app. Its core feature is showing a
 pause screen when the user opens an app they chose to block, during a focus
-session or during wind-down hours they scheduled. The Accessibility Service
+session or during wind-down hours they scheduled, and a short breathing pause
+before apps the user chose for the optional Mindful pause feature. The Accessibility Service
 is used only to receive the window-change event that says which app came to
 the front. Without it the app cannot do its single main job.
 
