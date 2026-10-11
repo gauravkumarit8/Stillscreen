@@ -296,7 +296,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Text(
-                strictActive && end != null
+                strictActive
                     ? 'Locked until ${TimeOfDay.fromDateTime(end).format(context)}'
                     : active
                         ? 'End session'
