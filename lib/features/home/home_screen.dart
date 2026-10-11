@@ -242,6 +242,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final strictOn = ref.watch(strictModeProvider);
     final strictActive = active &&
         (ref.read(sharedPrefsProvider).getBool(sessionStrictKey) ?? false);
+    final lockedUntil = strictActive ? end : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -315,8 +316,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Text(
-                strictActive && end != null
-                    ? 'Locked until ${TimeOfDay.fromDateTime(end).format(context)}'
+                lockedUntil != null
+                    ? 'Locked until ${TimeOfDay.fromDateTime(lockedUntil).format(context)}'
                     : active
                         ? 'End session'
                         : 'Start focus session',
