@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,10 +9,9 @@ import '../../core/installed_apps.dart';
 import '../../core/models.dart';
 import '../../core/prefs.dart';
 import '../../core/reminder.dart';
-import '../../core/pause.dart';
 import '../../core/reminder_service.dart';
-import '../../core/winddown.dart';
 import '../../core/session_log.dart';
+import '../../core/start_guard.dart';
 import '../../core/strict.dart';
 import '../battery/battery_guide_card.dart';
 import '../professional/winddown_card.dart';
@@ -22,6 +19,8 @@ import '../student/exam_card.dart';
 import 'accessibility_disclosure.dart';
 import 'demo_menu.dart';
 import 'end_session_dialog.dart';
+import 'session_ring.dart';
+import 'start_guard_dialogs.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -34,7 +33,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   static const _durations = [25, 50, 90];
 
-  Timer? _ticker;
   bool _permissionGranted = true;
   bool _settling = false;
   int _pickedMinutes = 25;
@@ -47,23 +45,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Start loading the app list now so the picker opens instantly.
     Future.microtask(() => ref.read(installedAppsProvider));
     Future.microtask(_syncReminder);
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      _settleIfFinished();
-      if (mounted) setState(() {});
-    });
+    // A session may have ended while the app was closed.
+    Future.microtask(_settleIfFinished);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _ticker?.cancel();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // The user comes back from system settings after enabling the permission.
-    if (state == AppLifecycleState.resumed) _refreshPermission();
+    // Back from system settings, or from a long time away.
+    if (state == AppLifecycleState.resumed) {
+      _refreshPermission();
+      _settleIfFinished();
+    }
   }
 
   Future<void> _refreshPermission() async {
@@ -79,13 +77,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   DateTime? get _sessionStart {
     final ms = ref.read(sharedPrefsProvider).getInt(sessionStartKey);
     return ms == null ? null : DateTime.fromMillisecondsSinceEpoch(ms);
-  }
-
-  Duration get _remaining {
-    final end = _sessionEnd;
-    if (end == null) return Duration.zero;
-    final left = end.difference(DateTime.now());
-    return left.isNegative ? Duration.zero : left;
   }
 
   /// Re-arms the daily reminder (phones forget alarms after a force-stop) and
@@ -132,10 +123,54 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       }
     } finally {
       _settling = false;
+      if (mounted) setState(() {});
     }
   }
 
+  Future<void> _turnOnBlocking() async {
+    final agreed = await confirmAccessibilityDisclosure(context);
+    if (agreed) {
+      await ref.read(blockingEngineProvider).openPermissionSettings();
+    }
+  }
+
+  /// Start, unless nothing would be blocked. In that case, ask first, so a
+  /// session never silently does nothing.
   Future<void> _start() async {
+    final engine = ref.read(blockingEngineProvider);
+    final granted = await engine.isPermissionGranted();
+    if (mounted) setState(() => _permissionGranted = granted);
+
+    final chosen = installedCount(
+      ref.read(installedAppsProvider).valueOrNull,
+      ref.read(blockedAppsProvider),
+    );
+    final check =
+        evaluateStart(permissionGranted: granted, chosenInstalledApps: chosen);
+
+    if (check != StartCheck.ready) {
+      if (!mounted) return;
+      final choice = await askBeforeStart(context, check);
+      if (choice == StartChoice.cancel) return;
+      if (choice == StartChoice.fix) {
+        if (!mounted) return;
+        if (check == StartCheck.needsPermission) {
+          await _turnOnBlocking();
+        } else {
+          context.push('/apps');
+        }
+        return;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Timer only: no apps will be blocked.')),
+        );
+      }
+    }
+    await _beginSession();
+  }
+
+  Future<void> _beginSession() async {
     final engine = ref.read(blockingEngineProvider);
     final prefs = ref.read(sharedPrefsProvider);
     final duration = Duration(minutes: _pickedMinutes);
@@ -166,21 +201,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (confirmed) await _end();
   }
 
-  String _format(Duration d) {
-    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return d.inHours > 0 ? '${d.inHours}:$m:$s' : '$m:$s';
-  }
-
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final mode = ref.watch(userModeProvider);
-    final blockedCount = ref.watch(blockedAppsProvider).length;
     final stats = FocusStats(ref.watch(sessionLogProvider));
-    final reminder = ref.watch(reminderProvider);
-    final pauseConfig = ref.watch(pauseConfigProvider);
-    final pauseAppCount = ref.watch(pauseAppsProvider).length;
+    final blockedCount = installedCount(
+      ref.watch(installedAppsProvider).valueOrNull,
+      ref.watch(blockedAppsProvider),
+    );
 
     // Quiet the reminder for the rest of the day once the goal is reached.
     ref.listen<List<SessionRecord>>(sessionLogProvider, (_, next) {
@@ -192,16 +221,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     ref.listen<UserMode?>(userModeProvider, (_, __) {
       ref.read(reminderProvider.notifier).resync();
     });
-    final remaining = _remaining;
-    final active = remaining > Duration.zero;
-    final total = Duration(minutes: _pickedMinutes);
-    final progress = active
-        ? (remaining.inSeconds / total.inSeconds).clamp(0.0, 1.0)
-        : 1.0;
+
+    final end = _sessionEnd;
+    final start = _sessionStart;
+    final active = end != null && end.isAfter(DateTime.now());
     final strictOn = ref.watch(strictModeProvider);
     final strictActive = active &&
         (ref.read(sharedPrefsProvider).getBool(sessionStrictKey) ?? false);
-    final lockedUntil = _sessionEnd;
 
     return Scaffold(
       appBar: AppBar(
@@ -213,14 +239,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             icon: const Icon(Icons.bar_chart),
             onPressed: () => context.push('/stats'),
           ),
-          PopupMenuButton<UserMode>(
-            tooltip: 'Switch mode',
-            icon: const Icon(Icons.swap_horiz),
-            onSelected: (m) => ref.read(userModeProvider.notifier).set(m),
-            itemBuilder: (_) => [
-              for (final m in UserMode.values)
-                PopupMenuItem(value: m, child: Text(m.title)),
-            ],
+          IconButton(
+            tooltip: 'Settings',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.push('/settings'),
           ),
         ],
       ),
@@ -241,42 +263,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             const SizedBox(height: 16),
           ],
           if (!_permissionGranted) ...[
-            _PermissionNotice(
-              onTap: () async {
-                final agreed = await confirmAccessibilityDisclosure(context);
-                if (agreed) {
-                  await ref.read(blockingEngineProvider).openPermissionSettings();
-                }
-              },
-            ),
+            _PermissionNotice(onTap: _turnOnBlocking),
             const SizedBox(height: 24),
           ],
           if (_permissionGranted && !ref.watch(batteryGuideDoneProvider)) ...[
             const BatteryGuideCard(),
             const SizedBox(height: 16),
           ],
-          Center(
-            child: SizedBox(
-              width: 240,
-              height: 240,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox.expand(
-                    child: CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 10,
-                      color: stillTeal,
-                      backgroundColor: pebble,
-                    ),
-                  ),
-                  Text(
-                    _format(active ? remaining : total),
-                    style: text.displayMedium?.copyWith(fontWeight: FontWeight.w300),
-                  ),
-                ],
-              ),
-            ),
+          SessionRing(
+            start: start,
+            end: end,
+            idle: Duration(minutes: _pickedMinutes),
+            onFinished: _settleIfFinished,
           ),
           const SizedBox(height: 24),
           Wrap(
@@ -298,8 +296,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Text(
-                strictActive && lockedUntil != null
-                    ? 'Locked until ${TimeOfDay.fromDateTime(lockedUntil).format(context)}'
+                strictActive && end != null
+                    ? 'Locked until ${TimeOfDay.fromDateTime(end).format(context)}'
                     : active
                         ? 'End session'
                         : 'Start focus session',
@@ -334,22 +332,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             onChanged: active
                 ? null
                 : (v) => ref.read(strictModeProvider.notifier).set(v),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Mindful pause'),
-            subtitle: Text(pauseSubtitle(pauseConfig, pauseAppCount)),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/pause'),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Daily reminder'),
-            subtitle: Text(reminder.enabled
-                ? formatMinute(context, reminder.minuteOfDay)
-                : 'Off'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/reminder'),
           ),
         ],
       ),

@@ -20,7 +20,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final mode = _selected;
     if (mode == null) return;
     await ref.read(userModeProvider.notifier).set(mode);
-    if (mounted) context.go('/home');
+    if (mounted) context.go('/setup');
   }
 
   @override

@@ -11,6 +11,8 @@ object BlockStore {
     private const val PREFS = "stillscreen_native"
     private const val KEY_BLOCKED = "blocked"
     private const val KEY_SESSION_END = "session_end"
+    private const val KEY_SESSION_START = "session_start"
+    private const val LEDGER_PREFIX = "mins_"
     private const val KEY_WD_ENABLED = "wd_enabled"
     private const val KEY_WD_DAYS = "wd_days"
     private const val KEY_WD_START = "wd_start"
@@ -28,13 +30,61 @@ object BlockStore {
         prefs(ctx).getStringSet(KEY_BLOCKED, emptySet()) ?: emptySet()
 
     fun startSession(ctx: Context, durationMs: Long) {
+        settleFinished(ctx)
+        val now = System.currentTimeMillis()
         prefs(ctx).edit()
-            .putLong(KEY_SESSION_END, System.currentTimeMillis() + durationMs)
+            .putLong(KEY_SESSION_START, now)
+            .putLong(KEY_SESSION_END, now + durationMs)
             .apply()
     }
 
+    /** The user ended the session early, or Flutter is clearing one that finished. */
     fun stopSession(ctx: Context) {
-        prefs(ctx).edit().remove(KEY_SESSION_END).apply()
+        val p = prefs(ctx)
+        val start = p.getLong(KEY_SESSION_START, 0L)
+        val end = p.getLong(KEY_SESSION_END, 0L)
+        if (start != 0L && end != 0L) {
+            credit(ctx, start, minOf(System.currentTimeMillis(), end))
+        }
+        p.edit().remove(KEY_SESSION_START).remove(KEY_SESSION_END).apply()
+    }
+
+    /**
+     * Credits a session that ran to its end while the app was closed. It never
+     * touches a session that is still running.
+     */
+    fun settleFinished(ctx: Context) {
+        val p = prefs(ctx)
+        val start = p.getLong(KEY_SESSION_START, 0L)
+        val end = p.getLong(KEY_SESSION_END, 0L)
+        if (start == 0L || end == 0L || System.currentTimeMillis() < end) return
+        credit(ctx, start, end)
+        p.edit().remove(KEY_SESSION_START).remove(KEY_SESSION_END).apply()
+    }
+
+    /** Minutes focused today, as far as this side knows. Keeps the reminder quiet. */
+    fun minutesToday(ctx: Context): Int {
+        settleFinished(ctx)
+        return prefs(ctx).getInt(LEDGER_PREFIX + Reminder.dayKey(Calendar.getInstance()), 0)
+    }
+
+    private fun credit(ctx: Context, start: Long, end: Long) {
+        val minutes = ((end - start) / 60_000L).toInt()
+        if (minutes <= 0) return
+        val p = prefs(ctx)
+        val day = Reminder.dayKey(Calendar.getInstance().apply { timeInMillis = start })
+        val edit = p.edit().putInt(LEDGER_PREFIX + day, p.getInt(LEDGER_PREFIX + day, 0) + minutes)
+
+        // Keep only the last few days.
+        val keep = (0..3).map { daysAgo ->
+            Reminder.dayKey(Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, -daysAgo) })
+        }.toSet()
+        for (key in p.all.keys) {
+            if (key.startsWith(LEDGER_PREFIX) && key.removePrefix(LEDGER_PREFIX) !in keep) {
+                edit.remove(key)
+            }
+        }
+        edit.apply()
     }
 
     fun isSessionActive(ctx: Context): Boolean =

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/installed_apps.dart';
 import '../../core/winddown.dart';
 
 class WindDownScreen extends ConsumerWidget {
@@ -11,6 +12,8 @@ class WindDownScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(windDownProvider);
     final apps = ref.watch(windDownAppsProvider);
+    final chosenCount =
+        installedCount(ref.watch(installedAppsProvider).valueOrNull, apps);
     final notifier = ref.read(windDownProvider.notifier);
 
     Future<void> pickTime({required bool isStart}) async {
@@ -91,9 +94,9 @@ class WindDownScreen extends ConsumerWidget {
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Work apps to pause'),
-            subtitle: Text(apps.isEmpty
+            subtitle: Text(chosenCount == 0
                 ? 'None chosen yet. Pick apps like email and chat.'
-                : '${apps.length} chosen'),
+                : '$chosenCount chosen'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/winddown-apps'),
           ),

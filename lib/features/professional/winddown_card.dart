@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../core/installed_apps.dart';
 import '../../core/winddown.dart';
 
 class WindDownCard extends ConsumerWidget {
@@ -12,6 +13,8 @@ class WindDownCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(windDownProvider);
     final apps = ref.watch(windDownAppsProvider);
+    final chosenCount =
+        installedCount(ref.watch(installedAppsProvider).valueOrNull, apps);
     final text = Theme.of(context).textTheme;
 
     return InkWell(
@@ -43,7 +46,7 @@ class WindDownCard extends ConsumerWidget {
                     config.enabled
                         ? '${formatMinute(context, config.startMinute)} to '
                             '${formatMinute(context, config.endMinute)}, '
-                            '${apps.length} work apps paused'
+                            '$chosenCount work apps paused'
                         : 'Pause work apps after hours so you can switch off.',
                   ),
                 ],

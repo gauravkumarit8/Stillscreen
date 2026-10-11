@@ -31,8 +31,16 @@ object Reminder {
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun configure(ctx: Context, enabled: Boolean, minuteOfDay: Int, title: String, body: String) {
+    fun configure(
+        ctx: Context,
+        enabled: Boolean,
+        minuteOfDay: Int,
+        title: String,
+        body: String,
+        goalMinutes: Int = 10
+    ) {
         prefs(ctx).edit()
+            .putInt("goal_minutes", goalMinutes)
             .putBoolean("enabled", enabled)
             .putInt("minute", minuteOfDay)
             .putString("title", title)
@@ -47,8 +55,14 @@ object Reminder {
         prefs(ctx).edit().putString("goal_day", dayKey).apply()
     }
 
-    fun goalReachedToday(ctx: Context): Boolean =
-        prefs(ctx).getString("goal_day", null) == dayKey(Calendar.getInstance())
+    /**
+     * True if the app already reported the goal today, or if sessions that
+     * finished while it was closed add up to the goal.
+     */
+    fun goalReachedToday(ctx: Context): Boolean {
+        if (prefs(ctx).getString("goal_day", null) == dayKey(Calendar.getInstance())) return true
+        return BlockStore.minutesToday(ctx) >= prefs(ctx).getInt("goal_minutes", 10)
+    }
 
     /** Same "yyyyMMdd" format the Dart side uses. */
     fun dayKey(c: Calendar): String = String.format(

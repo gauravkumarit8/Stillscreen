@@ -15,7 +15,10 @@ class ReminderReceiver : BroadcastReceiver() {
             Intent.ACTION_MY_PACKAGE_REPLACED -> Reminder.schedule(context)
 
             Reminder.ACTION_REMIND -> {
-                if (!Reminder.goalReachedToday(context)) Reminder.showNotification(context)
+                // No nudge in the middle of a session, or after the goal is met.
+                if (!BlockStore.isSessionActive(context) && !Reminder.goalReachedToday(context)) {
+                    Reminder.showNotification(context)
+                }
                 Reminder.schedule(context) // always line up tomorrow's
             }
         }

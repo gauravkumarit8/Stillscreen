@@ -15,6 +15,7 @@ abstract class ReminderService {
     required int minuteOfDay,
     required String title,
     required String body,
+    required int goalMinutes,
   });
 
   /// Tells the reminder that today's goal is done, so it stays quiet today.
@@ -38,12 +39,14 @@ class AndroidReminderService implements ReminderService {
     required int minuteOfDay,
     required String title,
     required String body,
+    required int goalMinutes,
   }) async {
     await _channel.invokeMethod<void>('configureReminder', {
       'enabled': enabled,
       'minuteOfDay': minuteOfDay,
       'title': title,
       'body': body,
+      'goalMinutes': goalMinutes,
     });
   }
 
@@ -66,6 +69,7 @@ class PreviewReminderService implements ReminderService {
     required int minuteOfDay,
     required String title,
     required String body,
+    required int goalMinutes,
   }) async {}
 
   @override

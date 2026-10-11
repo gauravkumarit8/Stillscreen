@@ -153,7 +153,8 @@ class MainActivity : FlutterActivity() {
                             minuteOfDay = (args["minuteOfDay"] as? Number)?.toInt() ?: 18 * 60,
                             title = args["title"] as? String ?: "Time to focus",
                             body = args["body"] as? String
-                                ?: "A short session keeps your streak going."
+                                ?: "A short session keeps your streak going.",
+                            goalMinutes = (args["goalMinutes"] as? Number)?.toInt() ?: 10
                         )
                         result.success(null)
                     }
@@ -177,6 +178,40 @@ class MainActivity : FlutterActivity() {
                     }
 
                     "getPauseSummary" -> result.success(PauseStore.summary(this))
+
+                    "getAppInfo" -> {
+                        try {
+                            val info = packageManager.getPackageInfo(packageName, 0)
+                            result.success(
+                                mapOf(
+                                    "versionName" to (info.versionName ?: ""),
+                                    "versionCode" to
+                                        androidx.core.content.pm.PackageInfoCompat
+                                            .getLongVersionCode(info),
+                                    "device" to "${Build.MANUFACTURER} ${Build.MODEL}",
+                                    "androidVersion" to
+                                        "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
+                                )
+                            )
+                        } catch (e: Exception) {
+                            result.error("app_info_failed", e.message, null)
+                        }
+                    }
+
+                    "sendFeedback" -> {
+                        val args = call.arguments as Map<*, *>
+                        val intent = Intent(Intent.ACTION_SENDTO).apply {
+                            data = Uri.parse("mailto:")
+                            putExtra(Intent.EXTRA_EMAIL, arrayOf(args["to"] as? String ?: ""))
+                            putExtra(Intent.EXTRA_SUBJECT, args["subject"] as? String ?: "")
+                            putExtra(Intent.EXTRA_TEXT, args["body"] as? String ?: "")
+                        }
+                        result.success(tryStart(intent))
+                    }
+
+                    "openUrl" -> result.success(
+                        tryStart(Intent(Intent.ACTION_VIEW, Uri.parse(call.arguments as? String ?: "")))
+                    )
 
                     "shareImage" -> {
                         val args = call.arguments as Map<*, *>

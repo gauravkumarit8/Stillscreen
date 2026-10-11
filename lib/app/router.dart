@@ -9,6 +9,8 @@ import '../features/onboarding/onboarding_screen.dart';
 import '../features/pause/pause_screen.dart';
 import '../features/professional/winddown_screen.dart';
 import '../features/reminder/reminder_screen.dart';
+import '../features/settings/settings_screen.dart';
+import '../features/setup/setup_screen.dart';
 import '../features/stats/stats_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -33,6 +35,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/stats', builder: (_, __) => const StatsScreen()),
       GoRoute(path: '/battery', builder: (_, __) => const BatteryGuideScreen()),
       GoRoute(path: '/reminder', builder: (_, __) => const ReminderScreen()),
+      GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
+      GoRoute(path: '/setup', builder: (_, __) => const SetupScreen()),
     ],
   );
 });

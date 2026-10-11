@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/installed_apps.dart';
 import '../../core/pause.dart';
 
 class PauseScreen extends ConsumerWidget {
@@ -11,6 +12,8 @@ class PauseScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(pauseConfigProvider);
     final apps = ref.watch(pauseAppsProvider);
+    final chosenCount =
+        installedCount(ref.watch(installedAppsProvider).valueOrNull, apps);
     final notifier = ref.read(pauseConfigProvider.notifier);
     final text = Theme.of(context).textTheme;
 
@@ -68,15 +71,15 @@ class PauseScreen extends ConsumerWidget {
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Apps to pause'),
-            subtitle: Text(apps.isEmpty
+            subtitle: Text(chosenCount == 0
                 ? 'None chosen yet'
-                : apps.length == 1
+                : chosenCount == 1
                     ? '1 chosen'
-                    : '${apps.length} chosen'),
+                    : '$chosenCount chosen'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/pause-apps'),
           ),
-          if (config.enabled && apps.isEmpty) ...[
+          if (config.enabled && chosenCount == 0) ...[
             const SizedBox(height: 8),
             const Text('Choose at least one app, or nothing will be paused.'),
           ],
