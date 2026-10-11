@@ -9,6 +9,7 @@ import '../../core/pause.dart';
 import '../../core/prefs.dart';
 import '../../core/reminder.dart';
 import '../../core/support_service.dart';
+import '../../core/theme_mode.dart';
 import '../../core/winddown.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -78,6 +79,21 @@ class SettingsScreen extends ConsumerWidget {
               onSelectionChanged: (s) {
                 if (s.isNotEmpty) ref.read(userModeProvider.notifier).set(s.first);
               },
+            ),
+          ),
+          _Header('Appearance'),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: SegmentedButton<ThemeMode>(
+              showSelectedIcon: false,
+              segments: const [
+                ButtonSegment(value: ThemeMode.system, label: Text('System')),
+                ButtonSegment(value: ThemeMode.light, label: Text('Light')),
+                ButtonSegment(value: ThemeMode.dark, label: Text('Dark')),
+              ],
+              selected: {ref.watch(themeModeProvider)},
+              onSelectionChanged: (s) =>
+                  ref.read(themeModeProvider.notifier).set(s.first),
             ),
           ),
           const SizedBox(height: 8),

@@ -72,7 +72,7 @@ class StatsScreen extends ConsumerWidget {
             value: todayProgress,
             minHeight: 10,
             color: stillTeal,
-            backgroundColor: pebble,
+            backgroundColor: context.line,
             borderRadius: BorderRadius.circular(5),
           ),
           const SizedBox(height: 8),
@@ -112,7 +112,7 @@ class _StatTile extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: pebble),
+        border: Border.all(color: context.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,7 +158,7 @@ class _WeekBars extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: stats.minutesOn(d) >= dailyGoalMinutes
                           ? stillTeal
-                          : pebble,
+                          : context.line,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -188,7 +188,7 @@ class _PauseCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: pebble),
+        border: Border.all(color: context.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/router.dart';
 import 'app/theme.dart';
 import 'core/prefs.dart';
+import 'core/theme_mode.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,8 @@ class StillscreenApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Stillscreen',
       theme: buildTheme(),
+      darkTheme: buildDarkTheme(),
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
     );

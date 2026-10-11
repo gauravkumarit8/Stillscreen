@@ -25,12 +25,14 @@ class WindDownCard extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: config.enabled ? pebble : stillTeal),
+          border: Border.all(color: config.enabled ? context.line : stillTeal),
         ),
         child: Row(
           children: [
             Icon(Icons.nightlight_outlined,
-                color: config.enabled ? deepWater : stillTeal),
+                color: config.enabled
+                    ? Theme.of(context).colorScheme.onSurface
+                    : stillTeal),
             const SizedBox(width: 12),
             Expanded(
               child: Column(

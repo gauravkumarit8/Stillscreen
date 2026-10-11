@@ -28,7 +28,7 @@ class ExamCard extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: exam == null ? stillTeal : pebble),
+          border: Border.all(color: exam == null ? stillTeal : context.line),
         ),
         child: exam == null
             ? Row(

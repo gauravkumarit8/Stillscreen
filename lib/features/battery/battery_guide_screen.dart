@@ -85,7 +85,9 @@ class _BatteryGuideScreenState extends ConsumerState<BatteryGuideScreen>
             children: [
               Icon(
                 _optimizationIgnored ? Icons.check_circle_outline : Icons.info_outline,
-                color: _optimizationIgnored ? stillTeal : deepWater,
+                color: _optimizationIgnored
+                    ? stillTeal
+                    : Theme.of(context).colorScheme.onSurface,
               ),
               const SizedBox(width: 8),
               Expanded(

@@ -38,6 +38,7 @@ abstract class BlockingEngine {
     required Set<String> packages,
   });
   Future<Map<String, int>> getPauseSummary();
+  Future<Uint8List?> getAppIcon(String package, int size);
 }
 
 class AndroidBlockingEngine implements BlockingEngine {
@@ -116,6 +117,12 @@ class AndroidBlockingEngine implements BlockingEngine {
   Future<Map<String, int>> getPauseSummary() async {
     return await _channel.invokeMapMethod<String, int>('getPauseSummary') ?? {};
   }
+
+  @override
+  Future<Uint8List?> getAppIcon(String package, int size) {
+    return _channel
+        .invokeMethod<Uint8List>('getAppIcon', {'package': package, 'size': size});
+  }
 }
 
 /// Used on web / desktop so the UI can be previewed without real blocking.
@@ -167,6 +174,9 @@ class PreviewBlockingEngine implements BlockingEngine {
 
   @override
   Future<Map<String, int>> getPauseSummary() async => const {};
+
+  @override
+  Future<Uint8List?> getAppIcon(String package, int size) async => null;
 }
 
 final blockingEngineProvider = Provider<BlockingEngine>((ref) {

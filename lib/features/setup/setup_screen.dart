@@ -144,7 +144,7 @@ class _Step extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: done ? stillTeal : pebble, width: done ? 2 : 1),
+        border: Border.all(color: done ? stillTeal : context.line, width: done ? 2 : 1),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

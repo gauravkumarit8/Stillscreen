@@ -102,7 +102,7 @@ class _ReminderScreenState extends ConsumerState<ReminderScreen>
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: pebble),
+              border: Border.all(color: context.line),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

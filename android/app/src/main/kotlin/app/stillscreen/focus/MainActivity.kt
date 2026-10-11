@@ -213,6 +213,20 @@ class MainActivity : FlutterActivity() {
                         tryStart(Intent(Intent.ACTION_VIEW, Uri.parse(call.arguments as? String ?: "")))
                     )
 
+                    "getAppIcon" -> {
+                        val args = call.arguments as Map<*, *>
+                        val pkg = args["package"] as? String ?: ""
+                        val size = (args["size"] as? Number)?.toInt() ?: 96
+                        appLoader.execute {
+                            val png = try {
+                                iconPng(pkg, size)
+                            } catch (e: Exception) {
+                                null
+                            }
+                            runOnUiThread { result.success(png) }
+                        }
+                    }
+
                     "shareImage" -> {
                         val args = call.arguments as Map<*, *>
                         val bytes = args["bytes"] as? ByteArray
@@ -283,6 +297,20 @@ class MainActivity : FlutterActivity() {
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         startActivity(Intent.createChooser(send, "Share your streak"))
+    }
+
+    /** An app's icon as a small PNG. Runs on the background thread. */
+    private fun iconPng(pkg: String, sizePx: Int): ByteArray {
+        val drawable = packageManager.getApplicationIcon(pkg)
+        val bitmap = android.graphics.Bitmap.createBitmap(
+            sizePx, sizePx, android.graphics.Bitmap.Config.ARGB_8888
+        )
+        drawable.setBounds(0, 0, sizePx, sizePx)
+        drawable.draw(android.graphics.Canvas(bitmap))
+        val out = java.io.ByteArrayOutputStream()
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+        bitmap.recycle()
+        return out.toByteArray()
     }
 
     private fun tryStart(intent: Intent): Boolean = try {

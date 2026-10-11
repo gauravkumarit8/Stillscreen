@@ -10,6 +10,7 @@ import '../../core/models.dart';
 import '../../core/prefs.dart';
 import '../../core/reminder.dart';
 import '../../core/reminder_service.dart';
+import '../../core/session_length.dart';
 import '../../core/session_log.dart';
 import '../../core/start_guard.dart';
 import '../../core/strict.dart';
@@ -17,6 +18,7 @@ import '../battery/battery_guide_card.dart';
 import '../professional/winddown_card.dart';
 import '../student/exam_card.dart';
 import 'accessibility_disclosure.dart';
+import 'custom_length_dialog.dart';
 import 'demo_menu.dart';
 import 'end_session_dialog.dart';
 import 'session_ring.dart';
@@ -31,15 +33,17 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
-  static const _durations = [25, 50, 90];
+  static const _lengthKey = 'picked_minutes';
 
   bool _permissionGranted = true;
   bool _settling = false;
-  int _pickedMinutes = 25;
+  late int _pickedMinutes;
 
   @override
   void initState() {
     super.initState();
+    _pickedMinutes =
+        normalizeSessionMinutes(ref.read(sharedPrefsProvider).getInt(_lengthKey));
     WidgetsBinding.instance.addObserver(this);
     _refreshPermission();
     // Start loading the app list now so the picker opens instantly.
@@ -125,6 +129,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _settling = false;
       if (mounted) setState(() {});
     }
+  }
+
+  Future<void> _pick(int minutes) async {
+    setState(() => _pickedMinutes = minutes);
+    await ref.read(sharedPrefsProvider).setInt(_lengthKey, minutes);
+  }
+
+  Future<void> _pickCustom() async {
+    final minutes = await pickCustomLength(context, _pickedMinutes);
+    if (minutes != null) await _pick(minutes);
   }
 
   Future<void> _turnOnBlocking() async {
@@ -281,13 +295,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             alignment: WrapAlignment.center,
             spacing: 8,
             children: [
-              for (final m in _durations)
+              for (final m in sessionPresets)
                 ChoiceChip(
                   label: Text('$m min'),
                   selected: _pickedMinutes == m,
-                  onSelected:
-                      active ? null : (_) => setState(() => _pickedMinutes = m),
+                  onSelected: active ? null : (_) => _pick(m),
                 ),
+              ChoiceChip(
+                label: Text(
+                    isPresetLength(_pickedMinutes) ? 'Custom' : '$_pickedMinutes min'),
+                selected: !isPresetLength(_pickedMinutes),
+                onSelected: active ? null : (_) => _pickCustom(),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -296,7 +315,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 14),
               child: Text(
-                strictActive
+                strictActive && end != null
                     ? 'Locked until ${TimeOfDay.fromDateTime(end).format(context)}'
                     : active
                         ? 'End session'
@@ -326,7 +345,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             title: const Text('Strict mode'),
             subtitle: const Text(
               'Lock each session so it cannot be ended early. '
-              'Sessions are capped at 90 minutes.',
+              'Sessions are capped at 2 hours.',
             ),
             value: strictOn,
             onChanged: active
@@ -360,13 +379,13 @@ class _StreakRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: pebble),
+          border: Border.all(color: context.line),
         ),
         child: Row(
           children: [
             Icon(
               Icons.local_fire_department_outlined,
-              color: streak > 0 ? stillTeal : pebble,
+              color: streak > 0 ? stillTeal : context.line,
             ),
             const SizedBox(width: 8),
             Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),

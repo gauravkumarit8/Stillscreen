@@ -105,7 +105,7 @@ class _SessionRingState extends State<SessionRing> {
                 value: progress,
                 strokeWidth: 10,
                 color: stillTeal,
-                backgroundColor: pebble,
+                backgroundColor: context.line,
               ),
             ),
             Semantics(

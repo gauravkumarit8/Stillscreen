@@ -90,7 +90,7 @@ class _ModeCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? stillTeal : pebble,
+            color: selected ? stillTeal : context.line,
             width: selected ? 2 : 1,
           ),
         ),

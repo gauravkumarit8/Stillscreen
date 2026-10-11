@@ -7,6 +7,7 @@ import '../../core/installed_apps.dart';
 import '../../core/pause.dart';
 import '../../core/prefs.dart';
 import '../../core/winddown.dart';
+import 'app_icon.dart';
 
 /// Which list of apps the picker edits.
 enum AppListKind { focus, windDown, pause }
@@ -198,6 +199,7 @@ class _AppTile extends ConsumerWidget {
         ref.watch(_sourceFor(kind).select((s) => s.contains(app.package)));
 
     return CheckboxListTile(
+      secondary: AppIcon(package: app.package),
       title: Text(app.label),
       value: isSelected,
       onChanged: (_) => _toggle(ref, kind, app.package),
