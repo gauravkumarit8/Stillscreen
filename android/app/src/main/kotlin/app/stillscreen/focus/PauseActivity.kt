@@ -1,6 +1,9 @@
 package app.stillscreen.focus
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.animation.ObjectAnimator
+import android.animation.PropertyValuesHolder
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
@@ -8,17 +11,23 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.Gravity
+import android.view.View
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 /**
- * Mindful pause: a short breathing screen before an app the user chose.
+ * Mindful pause: a short breathing screen before an app the user chose. A soft
+ * circle grows and shrinks to set the pace, with the countdown inside it.
  * "Continue" unlocks when the countdown ends. "Not now" goes home.
  */
 class PauseActivity : Activity() {
 
     private var timer: CountDownTimer? = null
+    private var breathing: ObjectAnimator? = null
     private var target = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,11 +45,44 @@ class PauseActivity : Activity() {
             18f,
             0xFF62B5B0.toInt()
         )
-        val countdown = makeText("$seconds", 72f, Color.WHITE)
-        ObjectAnimator.ofFloat(countdown, "alpha", 0.45f, 1f).apply {
-            duration = 2000
+
+        // The countdown sits inside a circle that slowly grows and shrinks.
+        val countdown = makeText("$seconds", 56f, Color.WHITE)
+        val circle = View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0x4D62B5B0)
+            }
+        }
+        val breathBox = FrameLayout(this).apply {
+            addView(circle, FrameLayout.LayoutParams(dp(180), dp(180), Gravity.CENTER))
+            addView(
+                countdown,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER
+                )
+            )
+        }
+        val breathLabel = makeText("Breathe in", 16f, 0xFF62B5B0.toInt())
+        breathing = ObjectAnimator.ofPropertyValuesHolder(
+            circle,
+            PropertyValuesHolder.ofFloat("scaleX", 0.65f, 1f),
+            PropertyValuesHolder.ofFloat("scaleY", 0.65f, 1f)
+        ).apply {
+            duration = 4000
             repeatCount = ObjectAnimator.INFINITE
             repeatMode = ObjectAnimator.REVERSE
+            interpolator = AccelerateDecelerateInterpolator()
+            addListener(object : AnimatorListenerAdapter() {
+                private var inhale = true
+
+                override fun onAnimationRepeat(animation: Animator) {
+                    inhale = !inhale
+                    breathLabel.text = if (inhale) "Breathe in" else "Breathe out"
+                }
+            })
             start()
         }
 
@@ -56,19 +98,29 @@ class PauseActivity : Activity() {
             setOnClickListener { leave() }
         }
 
-        val root = LinearLayout(this).apply {
+        val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(0xFF14323A.toInt())
             val pad = dp(24)
             setPadding(pad, pad, pad, pad)
             addView(title)
             addView(subtitle)
-            addView(countdown)
+            addView(
+                breathBox,
+                LinearLayout.LayoutParams(dp(200), dp(200)).apply { topMargin = dp(8) }
+            )
+            addView(breathLabel)
             addView(proceed, buttonParams())
             addView(notNow, buttonParams())
         }
-        setContentView(root)
+        // Scrollable, so small screens and landscape still reach the buttons.
+        setContentView(
+            ScrollView(this).apply {
+                isFillViewport = true
+                setBackgroundColor(0xFF14323A.toInt())
+                addView(content)
+            }
+        )
 
         timer = object : CountDownTimer(seconds * 1000L, 1000L) {
             override fun onTick(millisUntilFinished: Long) {
@@ -98,6 +150,7 @@ class PauseActivity : Activity() {
 
     override fun onDestroy() {
         timer?.cancel()
+        breathing?.cancel()
         super.onDestroy()
     }
 

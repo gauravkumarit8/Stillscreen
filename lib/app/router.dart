@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/prefs.dart';
+import '../features/achievements/achievements_screen.dart';
 import '../features/battery/battery_guide_screen.dart';
+import '../features/break/break_screen.dart';
 import '../features/home/apps_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/onboarding/onboarding_screen.dart';
@@ -37,6 +39,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/reminder', builder: (_, __) => const ReminderScreen()),
       GoRoute(path: '/settings', builder: (_, __) => const SettingsScreen()),
       GoRoute(path: '/setup', builder: (_, __) => const SetupScreen()),
+      GoRoute(
+        path: '/achievements',
+        builder: (_, __) => const AchievementsScreen(),
+      ),
+      GoRoute(
+        path: '/break',
+        builder: (_, state) => BreakScreen(
+          minutes: int.tryParse(state.uri.queryParameters['m'] ?? '') ?? 5,
+        ),
+      ),
     ],
   );
 });

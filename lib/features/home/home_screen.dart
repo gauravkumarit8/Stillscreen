@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../core/achievements.dart';
 import '../../core/battery_guide.dart';
 import '../../core/blocking/blocking_engine.dart';
+import '../../core/goal.dart';
 import '../../core/installed_apps.dart';
 import '../../core/models.dart';
 import '../../core/prefs.dart';
@@ -21,6 +24,7 @@ import 'accessibility_disclosure.dart';
 import 'custom_length_dialog.dart';
 import 'demo_menu.dart';
 import 'end_session_dialog.dart';
+import 'session_complete_dialog.dart';
 import 'session_ring.dart';
 import 'start_guard_dialogs.dart';
 
@@ -87,8 +91,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   /// tells it if today's goal is already done.
   Future<void> _syncReminder() async {
     await ref.read(reminderProvider.notifier).resync();
-    final stats = FocusStats(ref.read(sessionLogProvider));
-    if (stats.todayMinutes >= dailyGoalMinutes) {
+    final stats = FocusStats(
+      ref.read(sessionLogProvider),
+      goals: ref.read(goalHistoryProvider),
+    );
+    if (stats.todayMinutes >= stats.todayGoal) {
       await ref
           .read(reminderServiceProvider)
           .markGoalReached(dayKey(DateTime.now()));
@@ -104,13 +111,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   /// Logs a session that ran to its end, including ones that finished while
-  /// the app was closed.
+  /// the app was closed, then shows the "session complete" moment.
   Future<void> _settleIfFinished() async {
     if (_settling) return;
     final end = _sessionEnd;
     if (end == null || DateTime.now().isBefore(end)) return;
 
     _settling = true;
+    int? finishedMinutes;
     try {
       final start = _sessionStart;
       await _clearSession();
@@ -119,15 +127,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         await ref.read(sessionLogProvider.notifier).add(
               SessionRecord(start: start, minutes: minutes, completed: true),
             );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Session complete. $minutes minutes focused.')),
-          );
-        }
+        finishedMinutes = minutes;
       }
     } finally {
       _settling = false;
       if (mounted) setState(() {});
+    }
+
+    final minutes = finishedMinutes;
+    if (minutes != null && minutes > 0 && mounted) await _celebrate(minutes);
+  }
+
+  Future<void> _celebrate(int minutes) async {
+    HapticFeedback.mediumImpact();
+    final stats = FocusStats(
+      ref.read(sessionLogProvider),
+      goals: ref.read(goalHistoryProvider),
+    );
+    final all = computeAchievements(stats);
+    final fresh = newlyUnlocked(all, ref.read(seenAchievementsProvider));
+    await ref
+        .read(seenAchievementsProvider.notifier)
+        .markSeen(all.where((a) => a.unlocked).map((a) => a.id));
+    if (!mounted) return;
+
+    final choice = await showSessionComplete(
+      context,
+      minutes: minutes,
+      streak: stats.currentStreak,
+      todayMinutes: stats.todayMinutes,
+      goal: stats.todayGoal,
+      badges: fresh,
+    );
+    if (!mounted) return;
+    switch (choice) {
+      case CompleteChoice.again:
+        await _start();
+      case CompleteChoice.breakTime:
+        context.push('/break?m=5');
+      case CompleteChoice.done:
+        break;
     }
   }
 
@@ -219,7 +258,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final mode = ref.watch(userModeProvider);
-    final stats = FocusStats(ref.watch(sessionLogProvider));
+    final stats = FocusStats(
+      ref.watch(sessionLogProvider),
+      goals: ref.watch(goalHistoryProvider),
+    );
     final blockedCount = installedCount(
       ref.watch(installedAppsProvider).valueOrNull,
       ref.watch(blockedAppsProvider),
@@ -227,7 +269,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     // Quiet the reminder for the rest of the day once the goal is reached.
     ref.listen<List<SessionRecord>>(sessionLogProvider, (_, next) {
-      if (FocusStats(next).todayMinutes >= dailyGoalMinutes) {
+      final latest = FocusStats(next, goals: ref.read(goalHistoryProvider));
+      if (latest.todayMinutes >= latest.todayGoal) {
         ref.read(reminderServiceProvider).markGoalReached(dayKey(DateTime.now()));
       }
     });
@@ -367,6 +410,8 @@ class _StreakRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final streak = stats.currentStreak;
+    final goal = stats.todayGoal;
+    final reached = stats.todayMinutes >= goal;
     final label = streak == 0
         ? 'Start your streak'
         : streak == 1
@@ -377,23 +422,49 @@ class _StreakRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: context.line),
         ),
-        child: Row(
+        child: Column(
           children: [
-            Icon(
-              Icons.local_fire_department_outlined,
-              color: streak > 0 ? stillTeal : context.line,
+            Row(
+              children: [
+                Icon(
+                  Icons.local_fire_department_outlined,
+                  color: streak > 0 ? stillTeal : context.line,
+                ),
+                const SizedBox(width: 8),
+                Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                if (stats.freezes > 0) ...[
+                  const SizedBox(width: 10),
+                  Tooltip(
+                    message: 'Rest days saved: ${stats.freezes}',
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.ac_unit, size: 16, color: stillTeal),
+                        const SizedBox(width: 2),
+                        Text('${stats.freezes}'),
+                      ],
+                    ),
+                  ),
+                ],
+                const Spacer(),
+                Text(reached
+                    ? 'Goal reached'
+                    : '${stats.todayMinutes} of $goal min today'),
+              ],
             ),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-            const Spacer(),
-            Text(stats.todayMinutes >= dailyGoalMinutes
-                ? 'Goal reached'
-                : '${stats.todayMinutes} of $dailyGoalMinutes min today'),
+            const SizedBox(height: 10),
+            LinearProgressIndicator(
+              value: (stats.todayMinutes / goal).clamp(0.0, 1.0),
+              minHeight: 6,
+              color: stillTeal,
+              backgroundColor: context.line,
+              borderRadius: BorderRadius.circular(3),
+            ),
           ],
         ),
       ),

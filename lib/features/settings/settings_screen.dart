@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/achievements.dart';
 import '../../core/app_config.dart';
+import '../../core/goal.dart';
 import '../../core/installed_apps.dart';
 import '../../core/models.dart';
 import '../../core/pause.dart';
 import '../../core/prefs.dart';
 import '../../core/reminder.dart';
+import '../../core/session_log.dart';
 import '../../core/support_service.dart';
 import '../../core/theme_mode.dart';
 import '../../core/winddown.dart';
+import 'goal_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -26,6 +30,12 @@ class SettingsScreen extends ConsumerWidget {
     final reminder = ref.watch(reminderProvider);
     final windDown = ref.watch(windDownProvider);
     final info = ref.watch(appInfoProvider).valueOrNull;
+    final dailyGoal = ref.watch(goalHistoryProvider).goalOn(DateTime.now());
+    final achievements = computeAchievements(FocusStats(
+      ref.watch(sessionLogProvider),
+      goals: ref.watch(goalHistoryProvider),
+    ));
+    final unlockedCount = achievements.where((a) => a.unlocked).length;
     final text = Theme.of(context).textTheme;
 
     Future<void> sendFeedback() async {
@@ -98,6 +108,18 @@ class SettingsScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 8),
           _Header('Focus'),
+          ListTile(
+            title: const Text('Daily goal'),
+            subtitle: Text('$dailyGoal min a day'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => showGoalDialog(context),
+          ),
+          ListTile(
+            title: const Text('Achievements'),
+            subtitle: Text('$unlockedCount of ${achievements.length} unlocked'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/achievements'),
+          ),
           ListTile(
             title: const Text('Mindful pause'),
             subtitle: Text(pauseSubtitle(pauseConfig, pauseChosen)),

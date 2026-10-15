@@ -9,7 +9,7 @@ class ExamCard extends ConsumerWidget {
   const ExamCard({super.key});
 
   String _countdown(int days) {
-    if (days < 0) return 'This exam has passed';
+    if (days < 0) return 'Done. Tap to set the next one';
     if (days == 0) return 'Exam day is today';
     if (days == 1) return 'Tomorrow';
     return '$days days to go';

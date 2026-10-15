@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'goal.dart';
 import 'models.dart';
 import 'prefs.dart';
 import 'reminder_service.dart';
-import 'session_log.dart';
 
 /// "20261007" style key for a local calendar day. The Android side builds the
 /// same format, so both agree on what "today" means.
@@ -82,7 +82,7 @@ class ReminderNotifier extends Notifier<ReminderConfig> {
           minuteOfDay: state.minuteOfDay,
           title: title,
           body: body,
-          goalMinutes: dailyGoalMinutes,
+          goalMinutes: ref.read(goalHistoryProvider).goalOn(DateTime.now()),
         );
   }
 }

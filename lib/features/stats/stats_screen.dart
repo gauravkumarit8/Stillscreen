@@ -2,8 +2,11 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../core/achievements.dart';
+import '../../core/goal.dart';
 import '../../core/pause.dart';
 import '../../core/session_log.dart';
 import 'streak_share_dialog.dart';
@@ -22,10 +25,15 @@ class StatsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final stats = FocusStats(ref.watch(sessionLogProvider));
+    final stats = FocusStats(
+      ref.watch(sessionLogProvider),
+      goals: ref.watch(goalHistoryProvider),
+    );
     final text = Theme.of(context).textTheme;
-    final todayProgress =
-        (stats.todayMinutes / dailyGoalMinutes).clamp(0.0, 1.0);
+    final goal = stats.todayGoal;
+    final todayProgress = (stats.todayMinutes / goal).clamp(0.0, 1.0);
+    final badges = computeAchievements(stats);
+    final unlocked = badges.where((a) => a.unlocked).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -63,7 +71,54 @@ class StatsScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          _StatTile(label: 'Total focus time', value: _duration(stats.totalMinutes)),
+          Row(
+            children: [
+              Expanded(
+                  child: _StatTile(
+                      label: 'Total focus time',
+                      value: _duration(stats.totalMinutes))),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _StatTile(
+                      label: 'Rest days saved', value: '${stats.freezes}')),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Every 7 days in a row earns a rest day, up to 2. If you miss a '
+            'day, a rest day keeps your streak going.',
+            style: text.bodySmall,
+          ),
+          const SizedBox(height: 16),
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => context.push('/achievements'),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: context.line),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.emoji_events_outlined, color: stillTeal),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Achievements',
+                            style: text.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600)),
+                        Text('$unlocked of ${badges.length} unlocked'),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 28),
           Text('Today',
               style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
@@ -76,9 +131,9 @@ class StatsScreen extends ConsumerWidget {
             borderRadius: BorderRadius.circular(5),
           ),
           const SizedBox(height: 8),
-          Text(stats.todayMinutes >= dailyGoalMinutes
+          Text(stats.todayMinutes >= goal
               ? 'Goal reached. ${stats.todayMinutes} minutes focused today.'
-              : '${stats.todayMinutes} of $dailyGoalMinutes minutes to keep your streak'),
+              : '${stats.todayMinutes} of $goal minutes to keep your streak'),
           const SizedBox(height: 28),
           ref.watch(pauseSummaryProvider).maybeWhen(
                 data: (s) => s.shownWeek == 0
@@ -93,6 +148,12 @@ class StatsScreen extends ConsumerWidget {
               style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           _WeekBars(stats: stats),
+          const SizedBox(height: 28),
+          Text('Last 5 weeks',
+              style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          _Heatmap(stats: stats),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -134,8 +195,7 @@ class _WeekBars extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final days = stats.lastDays(7);
-    final maxMinutes =
-        days.map(stats.minutesOn).fold<int>(dailyGoalMinutes, max);
+    final maxMinutes = days.map(stats.minutesOn).fold<int>(stats.todayGoal, max);
 
     return SizedBox(
       height: 140,
@@ -156,9 +216,7 @@ class _WeekBars extends StatelessWidget {
                     height: max(4.0, 90 * stats.minutesOn(d) / maxMinutes),
                     margin: const EdgeInsets.symmetric(horizontal: 6),
                     decoration: BoxDecoration(
-                      color: stats.minutesOn(d) >= dailyGoalMinutes
-                          ? stillTeal
-                          : context.line,
+                      color: stats.hitGoal(d) ? stillTeal : context.line,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -169,6 +227,75 @@ class _WeekBars extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// Five weeks as a calendar: darker means closer to (or past) that day's goal.
+class _Heatmap extends StatelessWidget {
+  const _Heatmap({required this.stats});
+  final FocusStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final today = stats.today;
+    final monday = DateTime(today.year, today.month, today.day - (today.weekday - 1));
+    final first = DateTime(monday.year, monday.month, monday.day - 7 * 4);
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            for (final name in _weekdays)
+              Expanded(
+                child: Center(
+                  child: Text(name.substring(0, 1),
+                      style: const TextStyle(fontSize: 12)),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        for (var week = 0; week < 5; week++)
+          Row(
+            children: [
+              for (var d = 0; d < 7; d++)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(2),
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: _cell(
+                        context,
+                        DateTime(first.year, first.month, first.day + week * 7 + d),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  Widget _cell(BuildContext context, DateTime day) {
+    if (day.isAfter(stats.today)) return const SizedBox.shrink();
+    final minutes = stats.minutesOn(day);
+    final goal = stats.goalOn(day);
+    final strength = minutes == 0 ? 0.0 : (minutes / goal).clamp(0.3, 1.0);
+    final color = minutes == 0
+        ? context.line
+        : Color.lerp(context.line, stillTeal, strength)!;
+    final isToday = day == stats.today;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+        border: isToday
+            ? Border.all(color: Theme.of(context).colorScheme.onSurface, width: 1.5)
+            : null,
       ),
     );
   }
