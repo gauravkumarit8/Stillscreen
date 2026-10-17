@@ -7,6 +7,7 @@ import android.animation.PropertyValuesHolder
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.CountDownTimer
@@ -45,6 +46,11 @@ class PauseActivity : Activity() {
             18f,
             0xFF62B5B0.toInt()
         )
+
+        val reason = BlockStore.reason(this)
+        val reasonView = makeText("\u201C$reason\u201D", 18f, Color.WHITE).apply {
+            setTypeface(typeface, Typeface.ITALIC)
+        }
 
         // The countdown sits inside a circle that slowly grows and shrinks.
         val countdown = makeText("$seconds", 56f, Color.WHITE)
@@ -105,6 +111,7 @@ class PauseActivity : Activity() {
             setPadding(pad, pad, pad, pad)
             addView(title)
             addView(subtitle)
+            if (reason.isNotEmpty()) addView(reasonView)
             addView(
                 breathBox,
                 LinearLayout.LayoutParams(dp(200), dp(200)).apply { topMargin = dp(8) }

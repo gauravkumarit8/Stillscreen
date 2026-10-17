@@ -39,6 +39,15 @@ abstract class BlockingEngine {
   });
   Future<Map<String, int>> getPauseSummary();
   Future<Uint8List?> getAppIcon(String package, int size);
+
+  /// Adds time to the running session. False if none is running.
+  Future<bool> extendSession(Duration extra);
+
+  /// The short note shown on the pause and block screens.
+  Future<void> setReason(String reason);
+
+  /// When the blocking service last handled a window change, or 0 if never.
+  Future<int> lastActiveMillis();
 }
 
 class AndroidBlockingEngine implements BlockingEngine {
@@ -123,6 +132,19 @@ class AndroidBlockingEngine implements BlockingEngine {
     return _channel
         .invokeMethod<Uint8List>('getAppIcon', {'package': package, 'size': size});
   }
+
+  @override
+  Future<bool> extendSession(Duration extra) async =>
+      (await _channel.invokeMethod<bool>('extendSession', extra.inMinutes)) ?? false;
+
+  @override
+  Future<void> setReason(String reason) async {
+    await _channel.invokeMethod<void>('setReason', reason);
+  }
+
+  @override
+  Future<int> lastActiveMillis() async =>
+      ((await _channel.invokeMethod<num>('lastActive')) ?? 0).toInt();
 }
 
 /// Used on web / desktop so the UI can be previewed without real blocking.
@@ -177,6 +199,15 @@ class PreviewBlockingEngine implements BlockingEngine {
 
   @override
   Future<Uint8List?> getAppIcon(String package, int size) async => null;
+
+  @override
+  Future<bool> extendSession(Duration extra) async => true;
+
+  @override
+  Future<void> setReason(String reason) async {}
+
+  @override
+  Future<int> lastActiveMillis() async => DateTime.now().millisecondsSinceEpoch;
 }
 
 final blockingEngineProvider = Provider<BlockingEngine>((ref) {

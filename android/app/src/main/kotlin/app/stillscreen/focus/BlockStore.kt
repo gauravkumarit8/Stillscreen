@@ -12,6 +12,8 @@ object BlockStore {
     private const val KEY_BLOCKED = "blocked"
     private const val KEY_SESSION_END = "session_end"
     private const val KEY_SESSION_START = "session_start"
+    private const val KEY_LAST_ACTIVE = "last_active"
+    private const val KEY_REASON = "reason"
     private const val LEDGER_PREFIX = "mins_"
     private const val KEY_WD_ENABLED = "wd_enabled"
     private const val KEY_WD_DAYS = "wd_days"
@@ -86,6 +88,29 @@ object BlockStore {
         }
         edit.apply()
     }
+
+    /** Adds time to a session that is still running. False if none is. */
+    fun extendSession(ctx: Context, extraMs: Long): Boolean {
+        val p = prefs(ctx)
+        val end = p.getLong(KEY_SESSION_END, 0L)
+        if (System.currentTimeMillis() >= end) return false
+        p.edit().putLong(KEY_SESSION_END, end + extraMs).apply()
+        return true
+    }
+
+    /** The blocking service saw a window change. Shown in the health check. */
+    fun touchActive(ctx: Context) {
+        prefs(ctx).edit().putLong(KEY_LAST_ACTIVE, System.currentTimeMillis()).apply()
+    }
+
+    fun lastActive(ctx: Context): Long = prefs(ctx).getLong(KEY_LAST_ACTIVE, 0L)
+
+    /** A short personal note shown on the pause and block screens. */
+    fun setReason(ctx: Context, reason: String) {
+        prefs(ctx).edit().putString(KEY_REASON, reason.trim().take(80)).apply()
+    }
+
+    fun reason(ctx: Context): String = prefs(ctx).getString(KEY_REASON, "") ?: ""
 
     fun isSessionActive(ctx: Context): Boolean =
         System.currentTimeMillis() < prefs(ctx).getLong(KEY_SESSION_END, 0L)

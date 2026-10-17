@@ -12,6 +12,10 @@ abstract class PowerSettings {
   /// Returns false when no manufacturer-specific screen could be opened.
   Future<bool> openAutostartSettings();
   Future<void> openAppInfo();
+
+  /// Where picture-in-picture can be switched off per app. False if the phone
+  /// has no such screen.
+  Future<bool> openPictureInPictureSettings();
 }
 
 class AndroidPowerSettings implements PowerSettings {
@@ -38,6 +42,10 @@ class AndroidPowerSettings implements PowerSettings {
   Future<void> openAppInfo() async {
     await _channel.invokeMethod<void>('openAppInfo');
   }
+
+  @override
+  Future<bool> openPictureInPictureSettings() async =>
+      (await _channel.invokeMethod<bool>('openPipSettings')) ?? false;
 }
 
 class PreviewPowerSettings implements PowerSettings {
@@ -55,6 +63,9 @@ class PreviewPowerSettings implements PowerSettings {
 
   @override
   Future<void> openAppInfo() async {}
+
+  @override
+  Future<bool> openPictureInPictureSettings() async => false;
 }
 
 final powerSettingsProvider = Provider<PowerSettings>((ref) {

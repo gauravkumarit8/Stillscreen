@@ -227,6 +227,21 @@ class MainActivity : FlutterActivity() {
                         }
                     }
 
+                    "openPipSettings" -> result.success(
+                        tryStart(Intent("android.settings.PICTURE_IN_PICTURE_SETTINGS"))
+                    )
+
+                    "extendSession" -> result.success(
+                        BlockStore.extendSession(this, (call.arguments as Number).toLong() * 60_000L)
+                    )
+
+                    "setReason" -> {
+                        BlockStore.setReason(this, call.arguments as? String ?: "")
+                        result.success(null)
+                    }
+
+                    "lastActive" -> result.success(BlockStore.lastActive(this))
+
                     "shareImage" -> {
                         val args = call.arguments as Map<*, *>
                         val bytes = args["bytes"] as? ByteArray

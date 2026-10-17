@@ -8,6 +8,7 @@ import '../../core/goal.dart';
 import '../../core/installed_apps.dart';
 import '../../core/models.dart';
 import '../../core/pause.dart';
+import '../../core/reason.dart';
 import '../../core/prefs.dart';
 import '../../core/reminder.dart';
 import '../../core/session_log.dart';
@@ -15,6 +16,7 @@ import '../../core/support_service.dart';
 import '../../core/theme_mode.dart';
 import '../../core/winddown.dart';
 import 'goal_dialog.dart';
+import 'reason_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -36,6 +38,7 @@ class SettingsScreen extends ConsumerWidget {
       goals: ref.watch(goalHistoryProvider),
     ));
     final unlockedCount = achievements.where((a) => a.unlocked).length;
+    final reason = ref.watch(reasonProvider);
     final text = Theme.of(context).textTheme;
 
     Future<void> sendFeedback() async {
@@ -121,6 +124,16 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.push('/achievements'),
           ),
           ListTile(
+            title: const Text('My reminder'),
+            subtitle: Text(
+              reason.isEmpty ? 'A note for the pause and block screens' : reason,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => showReasonDialog(context),
+          ),
+          ListTile(
             title: const Text('Mindful pause'),
             subtitle: Text(pauseSubtitle(pauseConfig, pauseChosen)),
             trailing: const Icon(Icons.chevron_right),
@@ -145,6 +158,12 @@ class SettingsScreen extends ConsumerWidget {
           ),
           _Header('Help'),
           ListTile(
+            title: const Text('Blocking health check'),
+            subtitle: const Text('Is everything working?'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/health'),
+          ),
+          ListTile(
             title: const Text('Set up blocking'),
             subtitle: const Text('Permission, apps and your first session'),
             trailing: const Icon(Icons.chevron_right),
@@ -163,6 +182,12 @@ class SettingsScreen extends ConsumerWidget {
             onTap: sendFeedback,
           ),
           _Header('About'),
+          ListTile(
+            title: const Text('Privacy at a glance'),
+            subtitle: const Text('What stays on your phone'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/privacy'),
+          ),
           ListTile(
             title: const Text('Privacy policy'),
             trailing: const Icon(Icons.chevron_right),

@@ -9,6 +9,7 @@ import '../../core/achievements.dart';
 import '../../core/goal.dart';
 import '../../core/pause.dart';
 import '../../core/session_log.dart';
+import 'add_time_dialog.dart';
 import 'streak_share_dialog.dart';
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -39,6 +40,11 @@ class StatsScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Your focus'),
         actions: [
+          IconButton(
+            tooltip: 'Add offline focus time',
+            icon: const Icon(Icons.add_circle_outline),
+            onPressed: () => showAddTimeDialog(context),
+          ),
           IconButton(
             tooltip: 'Share your streak',
             icon: const Icon(Icons.ios_share),

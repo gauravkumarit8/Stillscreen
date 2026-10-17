@@ -7,10 +7,32 @@ import android.view.accessibility.AccessibilityEvent
 class BlockerAccessibilityService : AccessibilityService() {
 
     private var lastPackage: String? = null
+    private var lastBeat = 0L
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        BlockStore.touchActive(this)
+        Alerts.clearBlockingOff(this)
+    }
+
+    /** Blocking was switched off. Warn only if it matters right now. */
+    override fun onUnbind(intent: Intent?): Boolean {
+        if (BlockStore.isSessionActive(this) || BlockStore.isWindDownActive(this)) {
+            Alerts.showBlockingOff(this)
+        }
+        return super.onUnbind(intent)
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event?.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString() ?: return
+
+        // Note that the service is alive, at most once a minute.
+        val now = System.currentTimeMillis()
+        if (now - lastBeat > 60_000L) {
+            lastBeat = now
+            BlockStore.touchActive(this)
+        }
 
         // Ignore repeat events for the same app and our own screens.
         if (pkg == lastPackage || pkg == packageName) return

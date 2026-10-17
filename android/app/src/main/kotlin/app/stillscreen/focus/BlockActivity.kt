@@ -3,6 +3,7 @@ package app.stillscreen.focus
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
@@ -31,6 +32,15 @@ class BlockActivity : Activity() {
             setTextColor(Color.WHITE)
             setPadding(dp(16), dp(24), dp(16), dp(24))
         }
+        val reason = BlockStore.reason(this)
+        val reasonView = TextView(this).apply {
+            text = "\u201C$reason\u201D"
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setTextColor(0xFF62B5B0.toInt())
+            setTypeface(typeface, Typeface.ITALIC)
+            setPadding(dp(16), 0, dp(16), dp(24))
+        }
         val button = Button(this).apply {
             text = if (windDown) "Okay" else "Back to focus"
             isAllCaps = false
@@ -50,6 +60,7 @@ class BlockActivity : Activity() {
             setBackgroundColor(0xFF14323A.toInt())
             setPadding(dp(24), dp(24), dp(24), dp(24))
             addView(message)
+            if (reason.isNotEmpty()) addView(reasonView)
             addView(
                 button,
                 LinearLayout.LayoutParams(

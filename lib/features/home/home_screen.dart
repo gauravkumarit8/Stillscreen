@@ -38,6 +38,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with WidgetsBindingObserver {
   static const _lengthKey = 'picked_minutes';
+  static const _maxSessionMinutes = 180;
 
   bool _permissionGranted = true;
   bool _settling = false;
@@ -249,6 +250,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (mounted) setState(() {});
   }
 
+  /// For interruptions: add a few minutes to the running session. Not offered
+  /// in strict mode, where the point is to stay with the plan you made.
+  Future<void> _extend(int minutes) async {
+    final start = _sessionStart;
+    final end = _sessionEnd;
+    if (start == null || end == null || !end.isAfter(DateTime.now())) return;
+
+    final newEnd = end.add(Duration(minutes: minutes));
+    if (newEnd.difference(start) > const Duration(minutes: _maxSessionMinutes)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sessions can be up to 3 hours.')),
+      );
+      return;
+    }
+    final extended = await ref
+        .read(blockingEngineProvider)
+        .extendSession(Duration(minutes: minutes));
+    if (!extended) return;
+    await ref
+        .read(sharedPrefsProvider)
+        .setInt(sessionEndKey, newEnd.millisecondsSinceEpoch);
+    if (mounted) setState(() {});
+  }
+
   Future<void> _requestEnd() async {
     final confirmed = await confirmEndSession(context);
     if (confirmed) await _end();
@@ -372,6 +397,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             const Text(
               'Strict mode is on. Blocking stays on until the timer ends.',
               textAlign: TextAlign.center,
+            ),
+          ],
+          if (active && !strictActive) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton(
+                  onPressed: () => _extend(5),
+                  child: const Text('+5 min'),
+                ),
+                TextButton(
+                  onPressed: () => _extend(10),
+                  child: const Text('+10 min'),
+                ),
+              ],
             ),
           ],
           const SizedBox(height: 16),
