@@ -8,6 +8,7 @@ import '../../core/goal.dart';
 import '../../core/installed_apps.dart';
 import '../../core/models.dart';
 import '../../core/pause.dart';
+import '../../core/pomodoro.dart';
 import '../../core/reason.dart';
 import '../../core/prefs.dart';
 import '../../core/reminder.dart';
@@ -39,6 +40,7 @@ class SettingsScreen extends ConsumerWidget {
     ));
     final unlockedCount = achievements.where((a) => a.unlocked).length;
     final reason = ref.watch(reasonProvider);
+    final pomodoro = ref.watch(pomodoroEnabledProvider);
     final text = Theme.of(context).textTheme;
 
     Future<void> sendFeedback() async {
@@ -116,6 +118,16 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: Text('$dailyGoal min a day'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => showGoalDialog(context),
+          ),
+          SwitchListTile(
+            title: const Text('Pomodoro rounds'),
+            subtitle: const Text(
+              'After each session, suggest a $shortBreakMinutes minute break, '
+              'and a $longBreakMinutes minute one after every '
+              '$pomodoroRoundsPerCycle rounds',
+            ),
+            value: pomodoro,
+            onChanged: (v) => ref.read(pomodoroEnabledProvider.notifier).set(v),
           ),
           ListTile(
             title: const Text('Achievements'),

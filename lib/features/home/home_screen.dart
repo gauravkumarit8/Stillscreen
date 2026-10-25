@@ -10,6 +10,7 @@ import '../../core/blocking/blocking_engine.dart';
 import '../../core/goal.dart';
 import '../../core/installed_apps.dart';
 import '../../core/models.dart';
+import '../../core/pomodoro.dart';
 import '../../core/prefs.dart';
 import '../../core/reminder.dart';
 import '../../core/reminder_service.dart';
@@ -120,6 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     _settling = true;
     int? finishedMinutes;
+    DateTime? finishedStart;
     try {
       final start = _sessionStart;
       await _clearSession();
@@ -129,6 +131,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               SessionRecord(start: start, minutes: minutes, completed: true),
             );
         finishedMinutes = minutes;
+        finishedStart = start;
       }
     } finally {
       _settling = false;
@@ -136,11 +139,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
 
     final minutes = finishedMinutes;
-    if (minutes != null && minutes > 0 && mounted) await _celebrate(minutes);
+    final started = finishedStart;
+    if (minutes != null && started != null && minutes > 0 && mounted) {
+      await _celebrate(minutes, started: started, ended: end);
+    }
   }
 
-  Future<void> _celebrate(int minutes) async {
+  Future<void> _celebrate(
+    int minutes, {
+    required DateTime started,
+    required DateTime ended,
+  }) async {
     HapticFeedback.mediumImpact();
+    PomodoroRound? round;
+    if (ref.read(pomodoroEnabledProvider)) {
+      round = await ref
+          .read(pomodoroTrackerProvider)
+          .completeRound(sessionStart: started, sessionEnd: ended);
+    }
     final stats = FocusStats(
       ref.read(sessionLogProvider),
       goals: ref.read(goalHistoryProvider),
@@ -159,13 +175,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       todayMinutes: stats.todayMinutes,
       goal: stats.todayGoal,
       badges: fresh,
+      round: round,
     );
     if (!mounted) return;
     switch (choice) {
       case CompleteChoice.again:
         await _start();
       case CompleteChoice.breakTime:
-        context.push('/break?m=5');
+        context.push('/break?m=${round?.breakMinutes ?? shortBreakMinutes}');
       case CompleteChoice.done:
         break;
     }

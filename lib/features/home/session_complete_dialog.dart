@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
 import '../../core/achievements.dart';
+import '../../core/pomodoro.dart';
 
 enum CompleteChoice { done, again, breakTime }
 
@@ -14,6 +15,7 @@ Future<CompleteChoice> showSessionComplete(
   required int todayMinutes,
   required int goal,
   required List<Achievement> badges,
+  PomodoroRound? round,
 }) async {
   final choice = await showDialog<CompleteChoice>(
     context: context,
@@ -39,6 +41,15 @@ Future<CompleteChoice> showSessionComplete(
                 style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 4),
+              if (round != null) ...[
+                Text(
+                  round.isLastOfCycle
+                      ? '${round.label}. Cycle complete, time for a longer break.'
+                      : round.label,
+                  style: text.titleSmall?.copyWith(color: stillTeal),
+                ),
+                const SizedBox(height: 4),
+              ],
               Text(streakText),
               const SizedBox(height: 16),
               LinearProgressIndicator(
@@ -83,7 +94,7 @@ Future<CompleteChoice> showSessionComplete(
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(CompleteChoice.breakTime),
-            child: const Text('5 min break'),
+            child: Text('${round?.breakMinutes ?? shortBreakMinutes} min break'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(CompleteChoice.again),
