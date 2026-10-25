@@ -70,12 +70,33 @@ object BlockStore {
         return prefs(ctx).getInt(LEDGER_PREFIX + Reminder.dayKey(Calendar.getInstance()), 0)
     }
 
+    /**
+     * Adds the minutes of a finished session to the day ledger. A session that
+     * runs past midnight is split, so each day gets its own share.
+     */
     private fun credit(ctx: Context, start: Long, end: Long) {
-        val minutes = ((end - start) / 60_000L).toInt()
-        if (minutes <= 0) return
+        if (end <= start) return
         val p = prefs(ctx)
-        val day = Reminder.dayKey(Calendar.getInstance().apply { timeInMillis = start })
-        val edit = p.edit().putInt(LEDGER_PREFIX + day, p.getInt(LEDGER_PREFIX + day, 0) + minutes)
+        val edit = p.edit()
+
+        var cursor = start
+        while (cursor < end) {
+            val cal = Calendar.getInstance().apply { timeInMillis = cursor }
+            val nextMidnight = (cal.clone() as Calendar).apply {
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                add(Calendar.DAY_OF_MONTH, 1)
+            }.timeInMillis
+            val sliceEnd = minOf(end, nextMidnight)
+            val minutes = ((sliceEnd - cursor) / 60_000L).toInt()
+            if (minutes > 0) {
+                val key = LEDGER_PREFIX + Reminder.dayKey(cal)
+                edit.putInt(key, p.getInt(key, 0) + minutes)
+            }
+            cursor = sliceEnd
+        }
 
         // Keep only the last few days.
         val keep = (0..3).map { daysAgo ->

@@ -34,8 +34,16 @@ class BlockerAccessibilityService : AccessibilityService() {
             BlockStore.touchActive(this)
         }
 
-        // Ignore repeat events for the same app and our own screens.
-        if (pkg == lastPackage || pkg == packageName) return
+        // Our own screens (block, pause, the app itself) are never blocked. But
+        // they must still count as "the app on screen", so that going straight
+        // back to a blocked app afterwards is seen as a new visit, not a repeat.
+        if (pkg == packageName) {
+            lastPackage = pkg
+            return
+        }
+
+        // Ignore repeat events for the same app.
+        if (pkg == lastPackage) return
         lastPackage = pkg
 
         // Blocking wins over the mindful pause.

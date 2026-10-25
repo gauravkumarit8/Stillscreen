@@ -56,6 +56,12 @@ object PauseStore {
         return opens
     }
 
+    /** How many times this app has paused you today, without counting again. */
+    fun opensToday(ctx: Context, pkg: String): Int {
+        val day = Reminder.dayKey(Calendar.getInstance())
+        return prefs(ctx).getInt("opens_${day}_$pkg", 1).coerceAtLeast(1)
+    }
+
     fun recordResisted(ctx: Context) {
         val day = Reminder.dayKey(Calendar.getInstance())
         val p = prefs(ctx)

@@ -9,6 +9,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.Gravity
@@ -19,6 +20,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.window.OnBackInvokedDispatcher
 
 /**
  * Mindful pause: a short breathing screen before an app the user chose. A soft
@@ -36,7 +38,15 @@ class PauseActivity : Activity() {
 
         target = intent.getStringExtra(EXTRA_PACKAGE) ?: ""
         val label = labelFor(target)
-        val opens = PauseStore.recordShown(this, target)
+        // Count a pause once per app. The screen can be rebuilt by a system
+        // change (dark mode, font size) or by a second app, and a rebuild for
+        // the same app must not count again.
+        val alreadyCounted = savedInstanceState?.getString(STATE_COUNTED) == target
+        val opens = if (alreadyCounted) {
+            PauseStore.opensToday(this, target)
+        } else {
+            PauseStore.recordShown(this, target)
+        }
         val seconds = PauseStore.seconds(this)
 
         val title = makeText("Take a breath.", 28f, Color.WHITE)
@@ -129,6 +139,15 @@ class PauseActivity : Activity() {
             }
         )
 
+        // Predictive back skips onBackPressed on Android 13+, so Back would
+        // close this screen and reveal the app without a pause. Treat it as
+        // walking away, as before.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT
+            ) { leave() }
+        }
+
         timer = object : CountDownTimer(seconds * 1000L, 1000L) {
             override fun onTick(millisUntilFinished: Long) {
                 val left = ((millisUntilFinished + 999) / 1000).toInt()
@@ -143,6 +162,11 @@ class PauseActivity : Activity() {
                 proceed.text = "Continue to $label"
             }
         }.start()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(STATE_COUNTED, target)
     }
 
     /** A second paused app while this screen is open: start over for that app. */
@@ -220,5 +244,6 @@ class PauseActivity : Activity() {
 
     companion object {
         const val EXTRA_PACKAGE = "paused_package"
+        private const val STATE_COUNTED = "counted_package"
     }
 }

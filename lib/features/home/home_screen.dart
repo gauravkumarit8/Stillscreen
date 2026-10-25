@@ -221,10 +221,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         );
       }
     }
-    await _beginSession();
+    await _beginSession(willBlock: check == StartCheck.ready);
   }
 
-  Future<void> _beginSession() async {
+  Future<void> _beginSession({required bool willBlock}) async {
     final engine = ref.read(blockingEngineProvider);
     final prefs = ref.read(sharedPrefsProvider);
     final duration = Duration(minutes: _pickedMinutes);
@@ -235,7 +235,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     await prefs.setInt(sessionStartKey, now.millisecondsSinceEpoch);
     await prefs.setInt(sessionEndKey, now.add(duration).millisecondsSinceEpoch);
     await prefs.setBool(sessionStrictKey, ref.read(strictModeProvider));
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    if (willBlock) {
+      // Blocking reacts when an app opens, so one that is already on screen
+      // needs to be left and reopened first.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Session started. If a chosen app is already open, switch away '
+            'from it and it will be blocked when you return.',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _end() async {

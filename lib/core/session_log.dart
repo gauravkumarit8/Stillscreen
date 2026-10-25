@@ -40,25 +40,47 @@ DateTime dayOf(DateTime d) => DateTime(d.year, d.month, d.day);
 DateTime _previousDay(DateTime d) => DateTime(d.year, d.month, d.day - 1);
 DateTime _nextDay(DateTime d) => DateTime(d.year, d.month, d.day + 1);
 
+/// The most sessions kept on the phone. At ten sessions a day this is more
+/// than a year, and it keeps the saved list small.
+const maxStoredSessions = 5000;
+
+/// Reads the saved session list. One damaged entry is skipped, so it can never
+/// wipe the rest of the history (and the streak that depends on it).
+List<SessionRecord> decodeSessionLog(String? raw) {
+  if (raw == null) return const [];
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(raw);
+  } catch (_) {
+    return const [];
+  }
+  if (decoded is! List) return const [];
+
+  final records = <SessionRecord>[];
+  for (final entry in decoded) {
+    try {
+      records.add(SessionRecord.fromJson(entry as Map<String, dynamic>));
+    } catch (_) {
+      // Skip just this entry.
+    }
+  }
+  return records;
+}
+
 class SessionLogNotifier extends Notifier<List<SessionRecord>> {
   static const _key = 'session_log';
 
   @override
-  List<SessionRecord> build() {
-    final raw = ref.read(sharedPrefsProvider).getString(_key);
-    if (raw == null) return const [];
-    try {
-      return (jsonDecode(raw) as List)
-          .map((e) => SessionRecord.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      return const [];
-    }
-  }
+  List<SessionRecord> build() =>
+      decodeSessionLog(ref.read(sharedPrefsProvider).getString(_key));
 
   Future<void> add(SessionRecord record) async {
     if (record.minutes < 1) return;
-    state = [...state, record];
+    var next = [...state, record];
+    if (next.length > maxStoredSessions) {
+      next = next.sublist(next.length - maxStoredSessions);
+    }
+    state = next;
     await ref
         .read(sharedPrefsProvider)
         .setString(_key, jsonEncode(state.map((e) => e.toJson()).toList()));
@@ -91,8 +113,28 @@ class FocusStats {
       : today = dayOf(now ?? DateTime.now()),
         _goals = goals ?? const GoalHistory() {
     for (final r in log) {
-      final d = dayOf(r.start);
-      _minutesByDay[d] = (_minutesByDay[d] ?? 0) + r.minutes;
+      _addSession(r);
+    }
+  }
+
+  /// Adds a session to the day totals. A session that runs past midnight is
+  /// split, so each day gets only the minutes that fell on it.
+  void _addSession(SessionRecord r) {
+    var cursor = r.start;
+    var remaining = r.minutes;
+    while (remaining > 0) {
+      final nextMidnight = DateTime(cursor.year, cursor.month, cursor.day + 1);
+      final untilMidnight = nextMidnight.difference(cursor).inMinutes;
+      if (untilMidnight < 1) {
+        // Less than a minute left in this day: step over midnight.
+        cursor = nextMidnight;
+        continue;
+      }
+      final slice = remaining < untilMidnight ? remaining : untilMidnight;
+      final d = dayOf(cursor);
+      _minutesByDay[d] = (_minutesByDay[d] ?? 0) + slice;
+      remaining -= slice;
+      cursor = cursor.add(Duration(minutes: slice));
     }
     _walk();
   }

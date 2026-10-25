@@ -64,4 +64,37 @@ void main() {
     expect(days.first, DateTime(2026, 10, 1));
     expect(days.last, DateTime(2026, 10, 7));
   });
+
+  test('a session past midnight is split across both days', () {
+    final stats = FocusStats([
+      rec(DateTime(2026, 10, 6, 23, 50), 30),
+    ], now: now);
+    expect(stats.minutesOn(DateTime(2026, 10, 6)), 10);
+    expect(stats.minutesOn(DateTime(2026, 10, 7)), 20);
+    expect(stats.totalMinutes, 30);
+  });
+
+  test('a split session counts toward the goal on each day it fills', () {
+    final stats = FocusStats([
+      rec(DateTime(2026, 10, 6, 23, 45), 60),
+    ], now: now);
+    expect(stats.minutesOn(DateTime(2026, 10, 6)), 15);
+    expect(stats.minutesOn(DateTime(2026, 10, 7)), 45);
+    expect(stats.currentStreak, 2);
+  });
+
+  test('a session that stays inside one day is not split', () {
+    final stats = FocusStats([
+      rec(DateTime(2026, 10, 7, 9, 0), 90),
+    ], now: now);
+    expect(stats.minutesOn(DateTime(2026, 10, 7)), 90);
+  });
+
+  test('a session starting in the last seconds of a day does not hang', () {
+    final stats = FocusStats([
+      rec(DateTime(2026, 10, 6, 23, 59, 40), 25),
+    ], now: now);
+    expect(stats.totalMinutes, 25);
+    expect(stats.minutesOn(DateTime(2026, 10, 7)), greaterThanOrEqualTo(24));
+  });
 }

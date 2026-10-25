@@ -5,7 +5,9 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
+import android.window.OnBackInvokedDispatcher
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
@@ -70,6 +72,15 @@ class BlockActivity : Activity() {
             )
         }
         setContentView(root)
+
+        // Android 13+ with predictive back never calls onBackPressed, so Back
+        // would simply close this screen and reveal the blocked app. Register
+        // for the new back event as well.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT
+            ) { goHome() }
+        }
     }
 
     @Deprecated("Back always returns home while blocking is active")

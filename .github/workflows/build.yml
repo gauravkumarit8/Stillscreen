@@ -25,6 +25,14 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Pin the Flutter version so a new stable release cannot change the build
+  # (including the Android target SDK) without you choosing it.
+  # How to fill this in: open the latest successful run, expand the step
+  # "Show Flutter version", copy the number after "Flutter" (for example
+  # 3.35.1), and paste it between the quotes. Empty means latest stable.
+  FLUTTER_VERSION: ""
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -41,7 +49,11 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
+
+      - name: Show Flutter version
+        run: flutter --version
 
       - run: flutter pub get
 
@@ -116,7 +128,9 @@ jobs:
 
       - name: Build release bundle
         if: env.BUILD_AAB == 'true'
-        run: flutter build appbundle --release
+        # Obfuscated, with the symbol files kept so crash traces from Android
+        # vitals can be read later (see the next upload step).
+        run: flutter build appbundle --release --obfuscate --split-debug-info=build/symbols
 
       - name: Show who signed it, and refuse the debug key
         if: env.BUILD_AAB == 'true'
@@ -144,6 +158,14 @@ jobs:
           name: stillscreen-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
           retention-days: 30
+
+      - name: Upload crash symbols
+        if: env.BUILD_AAB == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: stillscreen-crash-symbols
+          path: build/symbols
+          retention-days: 90
 
       - name: Summary
         if: always()
