@@ -12,6 +12,7 @@ class BlockerAccessibilityService : AccessibilityService() {
     private var lastPackage: String? = null
     private var lastBeat = 0L
     private val handler = Handler(Looper.getMainLooper())
+    private val overlay = BlockOverlay(this)
 
     /** When one of our own screens last came up. Used to see if a block screen opened. */
     @Volatile
@@ -39,6 +40,7 @@ class BlockerAccessibilityService : AccessibilityService() {
     /** Blocking was switched off. Warn only if it matters right now. */
     override fun onUnbind(intent: Intent?): Boolean {
         connected = false
+        overlay.hide()
         if (BlockStore.isSessionActive(this) || BlockStore.isWindDownActive(this)) {
             Alerts.showBlockingOff(this)
         }
@@ -48,6 +50,7 @@ class BlockerAccessibilityService : AccessibilityService() {
     override fun onDestroy() {
         connected = false
         handler.removeCallbacksAndMessages(null)
+        overlay.hide()
         super.onDestroy()
     }
 
@@ -60,6 +63,12 @@ class BlockerAccessibilityService : AccessibilityService() {
         if (now - lastBeat > 60_000L) {
             lastBeat = now
             BlockStore.touchActive(this)
+        }
+
+        // The overlay only belongs on top of the app it blocked. Once the
+        // person is in some other app (Home, for example), take it down.
+        if (overlay.isShowing && pkg != overlay.blockedPackage && pkg != packageName) {
+            overlay.hide()
         }
 
         // Our own screens (block, pause, the app itself) are never blocked. But
@@ -114,27 +123,35 @@ class BlockerAccessibilityService : AccessibilityService() {
         BlockStore.recordAttempt(this, pkg, outcome)
 
         // Some phones refuse to open a screen from the background without
-        // saying so. If the block screen has not appeared a moment later, send
-        // the person Home, so the blocked app is still closed.
+        // saying so. If the block screen has not appeared a moment later, cover
+        // the app with an overlay instead, which works on every brand. If even
+        // that is refused, send the person Home so the app is still closed.
         if (blockReason != null) {
             handler.postDelayed({
                 if (ownScreenAt < launchedAt) {
-                    performGlobalAction(GLOBAL_ACTION_HOME)
-                    val label = try {
-                        packageManager.getApplicationLabel(
-                            packageManager.getApplicationInfo(pkg, 0)
-                        ).toString()
-                    } catch (e: Exception) {
-                        pkg
+                    val shown = overlay.show(pkg, blockReason == BlockActivity.REASON_WIND_DOWN)
+                    if (shown) {
+                        BlockStore.recordAttempt(
+                            this, pkg, "block screen did not appear, showed an overlay instead"
+                        )
+                    } else {
+                        performGlobalAction(GLOBAL_ACTION_HOME)
+                        val label = try {
+                            packageManager.getApplicationLabel(
+                                packageManager.getApplicationInfo(pkg, 0)
+                            ).toString()
+                        } catch (e: Exception) {
+                            pkg
+                        }
+                        Toast.makeText(
+                            this, "$label is blocked during your focus session", Toast.LENGTH_SHORT
+                        ).show()
+                        BlockStore.recordAttempt(
+                            this, pkg, "block screen did not appear, sent Home instead"
+                        )
                     }
-                    Toast.makeText(
-                        this, "$label is blocked during your focus session", Toast.LENGTH_SHORT
-                    ).show()
-                    BlockStore.recordAttempt(
-                        this, pkg, "block screen did not appear, sent Home instead"
-                    )
                 }
-            }, 1000L)
+            }, 700L)
         }
     }
 

@@ -191,9 +191,10 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
             _CheckRow(
               title: 'Allow pop-ups (Xiaomi)',
               ok: null,
-              detail: 'Xiaomi phones stop the block screen from opening unless '
-                  'Stillscreen may display pop-up windows while running in the '
-                  'background. In Other permissions, allow it.',
+              detail: 'Recommended. Xiaomi phones only open the full block screen '
+                  'if Stillscreen may display pop-up windows while running in '
+                  'the background. Without it, Stillscreen covers the app with '
+                  'a simpler block screen instead. In Other permissions, allow it.',
               actionLabel: 'Open permissions',
               onAction: () async {
                 final opened = await power.openAppPermissions();

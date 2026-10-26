@@ -61,7 +61,8 @@ jobs:
       - run: flutter analyze --no-fatal-infos
 
       # ---------- debug APK (always) ----------
-      - run: flutter build apk --debug
+      - name: Build debug APK
+        run: bash scripts/retry_build.sh flutter build apk --debug
 
       - uses: actions/upload-artifact@v4
         with:
@@ -130,7 +131,7 @@ jobs:
         if: env.BUILD_AAB == 'true'
         # Obfuscated, with the symbol files kept so crash traces from Android
         # vitals can be read later (see the next upload step).
-        run: flutter build appbundle --release --obfuscate --split-debug-info=build/symbols
+        run: bash scripts/retry_build.sh flutter build appbundle --release --obfuscate --split-debug-info=build/symbols
 
       - name: Show who signed it, and refuse the debug key
         if: env.BUILD_AAB == 'true'
