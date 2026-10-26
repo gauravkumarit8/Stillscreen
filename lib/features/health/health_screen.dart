@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
+import '../../core/block_diagnostics.dart';
 import '../../core/app_config.dart';
 import '../../core/blocking/blocking_engine.dart';
 import '../../core/power/power_settings.dart';
@@ -23,9 +24,11 @@ class HealthScreen extends ConsumerStatefulWidget {
 class _HealthScreenState extends ConsumerState<HealthScreen>
     with WidgetsBindingObserver {
   bool? _blockingOn;
+  bool? _serviceRunning;
   bool? _batteryOff;
   bool? _notificationsOn;
   int _lastActive = 0;
+  BlockDiagnostics _diag = const BlockDiagnostics();
 
   @override
   void initState() {
@@ -47,16 +50,21 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
   }
 
   Future<void> _load() async {
-    final blocking = await ref.read(blockingEngineProvider).isPermissionGranted();
+    final engine = ref.read(blockingEngineProvider);
+    final blocking = await engine.isPermissionGranted();
+    final running = blocking ? await engine.isServiceConnected() : null;
     final battery = await ref.read(powerSettingsProvider).isBatteryOptimizationIgnored();
     final notifications = await ref.read(reminderServiceProvider).notificationsAllowed();
-    final last = await ref.read(blockingEngineProvider).lastActiveMillis();
+    final last = await engine.lastActiveMillis();
+    final diag = await engine.blockDiagnostics();
     if (!mounted) return;
     setState(() {
       _blockingOn = blocking;
+      _serviceRunning = running;
       _batteryOff = battery;
       _notificationsOn = notifications;
       _lastActive = last;
+      _diag = diag;
     });
   }
 
@@ -77,6 +85,9 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
     }
     final body = '${feedbackBody(info)}'
         'Blocking permission: ${_blockingOn == true ? 'on' : 'off'}\n'
+        'Blocking service running: ${_serviceRunning == true ? 'yes' : 'no'}\n'
+        'Last app seen: ${describeSeen(_diag, DateTime.now())}\n'
+        'Last block attempt: ${describeAttempt(_diag, DateTime.now())}\n'
         'Battery optimization off: ${_batteryOff == true ? 'yes' : 'no'}\n'
         'Notifications: ${_notificationsOn == true ? 'on' : 'off'}\n'
         'Last seen working: ${_lastActive == 0 ? 'never' : timeAgo(DateTime.fromMillisecondsSinceEpoch(_lastActive), DateTime.now())}\n';
@@ -92,8 +103,10 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
     final text = Theme.of(context).textTheme;
     final power = ref.read(powerSettingsProvider);
     final lastSeen = _lastActive == 0
-        ? 'Not seen yet. Open any app to test.'
-        : 'Last seen working ${timeAgo(DateTime.fromMillisecondsSinceEpoch(_lastActive), DateTime.now())}.';
+        ? 'Not noticed yet. Open any app to test.'
+        : 'Noticed an app change ${timeAgo(DateTime.fromMillisecondsSinceEpoch(_lastActive), DateTime.now())}. '
+            'If that is old and you have been switching apps, switch '
+            'Stillscreen off and on in Accessibility settings.';
 
     return Scaffold(
       appBar: AppBar(title: const Text('Blocking health check')),
@@ -103,9 +116,11 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
           Text(
             _blockingOn == null
                 ? 'Checking...'
-                : _blockingOn == true
-                    ? 'Blocking is on.'
-                    : 'Blocking is off.',
+                : _blockingOn == false
+                    ? 'Blocking is off.'
+                    : _serviceRunning == false
+                        ? 'Blocking has stopped.'
+                        : 'Blocking is on.',
             style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
@@ -122,9 +137,38 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
           ),
           const SizedBox(height: 12),
           _CheckRow(
-            title: 'Last seen working',
-            ok: _blockingOn == true && _lastActive > 0 ? true : null,
+            title: 'Blocking service',
+            ok: _blockingOn == true ? _serviceRunning : null,
+            detail: _serviceRunning == false
+                ? 'Android has stopped it in the background, so apps are not '
+                    'being blocked. Switch Stillscreen off and on again in '
+                    'Accessibility settings.'
+                : _serviceRunning == true
+                    ? 'Running.'
+                    : 'Turn on blocking first.',
+            actionLabel:
+                _serviceRunning == false ? 'Open Accessibility settings' : null,
+            onAction: ref.read(blockingEngineProvider).openPermissionSettings,
+          ),
+          const SizedBox(height: 12),
+          _CheckRow(
+            title: 'Last app change noticed',
+            ok: _blockingOn == true && _serviceRunning == true && _lastActive > 0
+                ? true
+                : null,
             detail: lastSeen,
+          ),
+          const SizedBox(height: 12),
+          _CheckRow(
+            title: 'Last app seen',
+            ok: null,
+            detail: describeSeen(_diag, DateTime.now()),
+          ),
+          const SizedBox(height: 12),
+          _CheckRow(
+            title: 'Last block attempt',
+            ok: null,
+            detail: describeAttempt(_diag, DateTime.now()),
           ),
           const SizedBox(height: 12),
           _CheckRow(

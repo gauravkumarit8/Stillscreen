@@ -13,6 +13,11 @@ object BlockStore {
     private const val KEY_SESSION_END = "session_end"
     private const val KEY_SESSION_START = "session_start"
     private const val KEY_LAST_ACTIVE = "last_active"
+    private const val KEY_SEEN_PKG = "seen_pkg"
+    private const val KEY_SEEN_AT = "seen_at"
+    private const val KEY_TRY_PKG = "try_pkg"
+    private const val KEY_TRY_AT = "try_at"
+    private const val KEY_TRY_RESULT = "try_result"
     private const val KEY_REASON = "reason"
     private const val LEDGER_PREFIX = "mins_"
     private const val KEY_WD_ENABLED = "wd_enabled"
@@ -125,6 +130,34 @@ object BlockStore {
     }
 
     fun lastActive(ctx: Context): Long = prefs(ctx).getLong(KEY_LAST_ACTIVE, 0L)
+
+    /** The newest app the service noticed, for the health check. */
+    fun recordSeen(ctx: Context, pkg: String) {
+        prefs(ctx).edit()
+            .putString(KEY_SEEN_PKG, pkg)
+            .putLong(KEY_SEEN_AT, System.currentTimeMillis())
+            .apply()
+    }
+
+    /** What happened the last time the service tried to block or pause an app. */
+    fun recordAttempt(ctx: Context, pkg: String, result: String) {
+        prefs(ctx).edit()
+            .putString(KEY_TRY_PKG, pkg)
+            .putLong(KEY_TRY_AT, System.currentTimeMillis())
+            .putString(KEY_TRY_RESULT, result)
+            .apply()
+    }
+
+    fun diagnostics(ctx: Context): Map<String, Any> {
+        val p = prefs(ctx)
+        return mapOf(
+            "seenPackage" to (p.getString(KEY_SEEN_PKG, "") ?: ""),
+            "seenAt" to p.getLong(KEY_SEEN_AT, 0L),
+            "attemptPackage" to (p.getString(KEY_TRY_PKG, "") ?: ""),
+            "attemptAt" to p.getLong(KEY_TRY_AT, 0L),
+            "attemptResult" to (p.getString(KEY_TRY_RESULT, "") ?: ""),
+        )
+    }
 
     /** A short personal note shown on the pause and block screens. */
     fun setReason(ctx: Context, reason: String) {

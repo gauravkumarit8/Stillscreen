@@ -242,6 +242,10 @@ class MainActivity : FlutterActivity() {
 
                     "lastActive" -> result.success(BlockStore.lastActive(this))
 
+                    "isServiceConnected" -> result.success(BlockerAccessibilityService.connected)
+
+                    "blockDiagnostics" -> result.success(BlockStore.diagnostics(this))
+
                     "shareImage" -> {
                         val args = call.arguments as Map<*, *>
                         val bytes = args["bytes"] as? ByteArray

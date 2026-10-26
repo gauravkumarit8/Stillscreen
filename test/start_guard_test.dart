@@ -50,4 +50,50 @@ void main() {
     expect(body, contains('Android: 14 (API 34)'));
     expect(body, startsWith('What happened?'));
   });
+
+  group('evaluateStart with a stopped service', () {
+    test('permission on but service stopped is its own case', () {
+      expect(
+        evaluateStart(
+          permissionGranted: true,
+          chosenInstalledApps: 3,
+          serviceConnected: false,
+        ),
+        StartCheck.serviceStopped,
+      );
+    });
+
+    test('missing permission is reported before a stopped service', () {
+      expect(
+        evaluateStart(
+          permissionGranted: false,
+          chosenInstalledApps: 3,
+          serviceConnected: false,
+        ),
+        StartCheck.needsPermission,
+      );
+    });
+
+    test('a stopped service is reported before missing apps', () {
+      expect(
+        evaluateStart(
+          permissionGranted: true,
+          chosenInstalledApps: 0,
+          serviceConnected: false,
+        ),
+        StartCheck.serviceStopped,
+      );
+    });
+
+    test('a running service changes nothing', () {
+      expect(
+        evaluateStart(
+          permissionGranted: true,
+          chosenInstalledApps: 2,
+          serviceConnected: true,
+        ),
+        StartCheck.ready,
+      );
+    });
+  });
 }

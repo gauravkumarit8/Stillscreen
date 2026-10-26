@@ -2,25 +2,52 @@ package app.stillscreen.focus
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 
 class BlockerAccessibilityService : AccessibilityService() {
 
     private var lastPackage: String? = null
     private var lastBeat = 0L
+    private val handler = Handler(Looper.getMainLooper())
+
+    /** When one of our own screens last came up. Used to see if a block screen opened. */
+    @Volatile
+    private var ownScreenAt = 0L
+
+    companion object {
+        /**
+         * True only while Android has this service connected and running. The
+         * "enabled" switch in Accessibility settings can stay on after the
+         * phone has stopped the service in the background, so the app checks
+         * this as well.
+         */
+        @Volatile
+        var connected: Boolean = false
+            private set
+    }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        connected = true
         BlockStore.touchActive(this)
         Alerts.clearBlockingOff(this)
     }
 
     /** Blocking was switched off. Warn only if it matters right now. */
     override fun onUnbind(intent: Intent?): Boolean {
+        connected = false
         if (BlockStore.isSessionActive(this) || BlockStore.isWindDownActive(this)) {
             Alerts.showBlockingOff(this)
         }
         return super.onUnbind(intent)
+    }
+
+    override fun onDestroy() {
+        connected = false
+        handler.removeCallbacksAndMessages(null)
+        super.onDestroy()
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -39,12 +66,14 @@ class BlockerAccessibilityService : AccessibilityService() {
         // back to a blocked app afterwards is seen as a new visit, not a repeat.
         if (pkg == packageName) {
             lastPackage = pkg
+            ownScreenAt = now
             return
         }
 
         // Ignore repeat events for the same app.
         if (pkg == lastPackage) return
         lastPackage = pkg
+        BlockStore.recordSeen(this, pkg)
 
         // Blocking wins over the mindful pause.
         val blockReason = when {
@@ -73,7 +102,29 @@ class BlockerAccessibilityService : AccessibilityService() {
             }
         }
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        startActivity(intent)
+
+        val launchedAt = System.currentTimeMillis()
+        var outcome = "opened the screen"
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            outcome = "could not open the screen (${e.javaClass.simpleName})"
+        }
+        BlockStore.recordAttempt(this, pkg, outcome)
+
+        // Some phones refuse to open a screen from the background without
+        // saying so. If the block screen has not appeared a moment later, send
+        // the person Home, so the blocked app is still closed.
+        if (blockReason != null) {
+            handler.postDelayed({
+                if (ownScreenAt < launchedAt) {
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    BlockStore.recordAttempt(
+                        this, pkg, "block screen did not appear, sent Home instead"
+                    )
+                }
+            }, 1000L)
+        }
     }
 
     override fun onInterrupt() {}

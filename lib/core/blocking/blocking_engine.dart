@@ -1,3 +1,4 @@
+import '../block_diagnostics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,6 +49,13 @@ abstract class BlockingEngine {
 
   /// When the blocking service last handled a window change, or 0 if never.
   Future<int> lastActiveMillis();
+
+  /// Whether Android is actually running the blocking service right now. The
+  /// permission can show as on while the phone has stopped the service.
+  Future<bool> isServiceConnected();
+
+  /// The last app the service saw and the last time it tried to block one.
+  Future<BlockDiagnostics> blockDiagnostics();
 }
 
 class AndroidBlockingEngine implements BlockingEngine {
@@ -145,6 +153,16 @@ class AndroidBlockingEngine implements BlockingEngine {
   @override
   Future<int> lastActiveMillis() async =>
       ((await _channel.invokeMethod<num>('lastActive')) ?? 0).toInt();
+
+  @override
+  Future<bool> isServiceConnected() async =>
+      (await _channel.invokeMethod<bool>('isServiceConnected')) ?? false;
+
+  @override
+  Future<BlockDiagnostics> blockDiagnostics() async {
+    final raw = await _channel.invokeMapMethod<Object?, Object?>('blockDiagnostics');
+    return raw == null ? const BlockDiagnostics() : BlockDiagnostics.fromMap(raw);
+  }
 }
 
 /// Used on web / desktop so the UI can be previewed without real blocking.
@@ -208,6 +226,12 @@ class PreviewBlockingEngine implements BlockingEngine {
 
   @override
   Future<int> lastActiveMillis() async => DateTime.now().millisecondsSinceEpoch;
+
+  @override
+  Future<bool> isServiceConnected() async => true;
+
+  @override
+  Future<BlockDiagnostics> blockDiagnostics() async => const BlockDiagnostics();
 }
 
 final blockingEngineProvider = Provider<BlockingEngine>((ref) {

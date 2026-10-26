@@ -216,8 +216,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       ref.read(installedAppsProvider).valueOrNull,
       ref.read(blockedAppsProvider),
     );
-    final check =
-        evaluateStart(permissionGranted: granted, chosenInstalledApps: chosen);
+    final connected = granted ? await engine.isServiceConnected() : true;
+    final check = evaluateStart(
+      permissionGranted: granted,
+      chosenInstalledApps: chosen,
+      serviceConnected: connected,
+    );
 
     if (check != StartCheck.ready) {
       if (!mounted) return;
@@ -227,6 +231,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         if (!mounted) return;
         if (check == StartCheck.needsPermission) {
           await _turnOnBlocking();
+        } else if (check == StartCheck.serviceStopped) {
+          await engine.openPermissionSettings();
         } else {
           context.push('/apps');
         }
