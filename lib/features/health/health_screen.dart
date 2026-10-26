@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme.dart';
 import '../../core/block_diagnostics.dart';
 import '../../core/app_config.dart';
+import '../../core/battery_guide.dart';
 import '../../core/blocking/blocking_engine.dart';
 import '../../core/power/power_settings.dart';
 import '../../core/reminder_service.dart';
@@ -29,6 +30,8 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
   bool? _notificationsOn;
   int _lastActive = 0;
   BlockDiagnostics _diag = const BlockDiagnostics();
+  List<ProcessExit> _exits = const [];
+  String _maker = '';
 
   @override
   void initState() {
@@ -57,6 +60,8 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
     final notifications = await ref.read(reminderServiceProvider).notificationsAllowed();
     final last = await engine.lastActiveMillis();
     final diag = await engine.blockDiagnostics();
+    final exits = await engine.recentExits();
+    final maker = await ref.read(powerSettingsProvider).manufacturer();
     if (!mounted) return;
     setState(() {
       _blockingOn = blocking;
@@ -65,6 +70,8 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
       _notificationsOn = notifications;
       _lastActive = last;
       _diag = diag;
+      _exits = exits;
+      _maker = maker;
     });
   }
 
@@ -88,6 +95,9 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
         'Blocking service running: ${_serviceRunning == true ? 'yes' : 'no'}\n'
         'Last app seen: ${describeSeen(_diag, DateTime.now())}\n'
         'Last block attempt: ${describeAttempt(_diag, DateTime.now())}\n'
+        'Phone: $_maker\n'
+        'Why the app last stopped: '
+        '${describeExits(_exits, DateTime.now()).replaceAll('\n', '; ')}\n'
         'Battery optimization off: ${_batteryOff == true ? 'yes' : 'no'}\n'
         'Notifications: ${_notificationsOn == true ? 'on' : 'off'}\n'
         'Last seen working: ${_lastActive == 0 ? 'never' : timeAgo(DateTime.fromMillisecondsSinceEpoch(_lastActive), DateTime.now())}\n';
@@ -170,6 +180,27 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
             ok: null,
             detail: describeAttempt(_diag, DateTime.now()),
           ),
+          const SizedBox(height: 12),
+          _CheckRow(
+            title: 'Why the app last stopped',
+            ok: null,
+            detail: describeExits(_exits, DateTime.now()),
+          ),
+          if (needsPopupPermission(_maker)) ...[
+            const SizedBox(height: 12),
+            _CheckRow(
+              title: 'Allow pop-ups (Xiaomi)',
+              ok: null,
+              detail: 'Xiaomi phones stop the block screen from opening unless '
+                  'Stillscreen may display pop-up windows while running in the '
+                  'background. In Other permissions, allow it.',
+              actionLabel: 'Open permissions',
+              onAction: () async {
+                final opened = await power.openAppPermissions();
+                if (!opened) await power.openAppInfo();
+              },
+            ),
+          ],
           const SizedBox(height: 12),
           _CheckRow(
             title: 'Battery optimization',

@@ -24,4 +24,19 @@ void main() {
     expect(hasAutostartScreen('samsung'), isFalse);
     expect(hasAutostartScreen('Google'), isFalse);
   });
+
+  test('Xiaomi steps include the background pop-up permission', () {
+    expect(
+      stepsFor('Xiaomi').any((s) => s.contains('pop-up')),
+      isTrue,
+    );
+  });
+
+  test('only Xiaomi-family phones need the pop-up permission', () {
+    expect(needsPopupPermission('Xiaomi'), isTrue);
+    expect(needsPopupPermission('POCO'), isTrue);
+    expect(needsPopupPermission('Redmi'), isTrue);
+    expect(needsPopupPermission('samsung'), isFalse);
+    expect(needsPopupPermission(''), isFalse);
+  });
 }

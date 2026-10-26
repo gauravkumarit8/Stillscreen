@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import android.widget.Toast
 import android.view.accessibility.AccessibilityEvent
 
 class BlockerAccessibilityService : AccessibilityService() {
@@ -119,6 +120,16 @@ class BlockerAccessibilityService : AccessibilityService() {
             handler.postDelayed({
                 if (ownScreenAt < launchedAt) {
                     performGlobalAction(GLOBAL_ACTION_HOME)
+                    val label = try {
+                        packageManager.getApplicationLabel(
+                            packageManager.getApplicationInfo(pkg, 0)
+                        ).toString()
+                    } catch (e: Exception) {
+                        pkg
+                    }
+                    Toast.makeText(
+                        this, "$label is blocked during your focus session", Toast.LENGTH_SHORT
+                    ).show()
                     BlockStore.recordAttempt(
                         this, pkg, "block screen did not appear, sent Home instead"
                     )

@@ -51,4 +51,47 @@ void main() {
     expect(d.seenAt, 0);
     expect(d.attemptResult, '');
   });
+
+  group('describeExits', () {
+    test('no stops recorded says so', () {
+      expect(describeExits(const [], now), contains('No recent stops'));
+    });
+
+    test('lists the reason and when, newest first, with detail', () {
+      final exits = [
+        ProcessExit(
+          reason: 'killed by the system',
+          at: now.subtract(const Duration(minutes: 2)).millisecondsSinceEpoch,
+          detail: 'freezer',
+        ),
+        ProcessExit(
+          reason: 'crashed',
+          at: now.subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
+        ),
+      ];
+      final lines = describeExits(exits, now).split('\n');
+      expect(lines.length, 2);
+      expect(lines.first, contains('killed by the system'));
+      expect(lines.first, contains('(freezer)'));
+      expect(lines.last, contains('crashed'));
+      expect(lines.last, isNot(contains('(')));
+    });
+
+    test('shows at most three stops', () {
+      final exits = List.generate(
+        5,
+        (i) => ProcessExit(
+          reason: 'stop $i',
+          at: now.subtract(Duration(minutes: i + 1)).millisecondsSinceEpoch,
+        ),
+      );
+      expect(describeExits(exits, now).split('\n').length, 3);
+    });
+
+    test('fromMap tolerates missing values', () {
+      final e = ProcessExit.fromMap({});
+      expect(e.at, 0);
+      expect(e.reason, '');
+    });
+  });
 }

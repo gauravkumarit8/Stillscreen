@@ -13,6 +13,10 @@ abstract class PowerSettings {
   Future<bool> openAutostartSettings();
   Future<void> openAppInfo();
 
+  /// Xiaomi's own permission screen, where background pop-ups are allowed.
+  /// False when the phone has no such screen.
+  Future<bool> openAppPermissions();
+
   /// Where picture-in-picture can be switched off per app. False if the phone
   /// has no such screen.
   Future<bool> openPictureInPictureSettings();
@@ -44,6 +48,10 @@ class AndroidPowerSettings implements PowerSettings {
   }
 
   @override
+  Future<bool> openAppPermissions() async =>
+      (await _channel.invokeMethod<bool>('openAppPermissions')) ?? false;
+
+  @override
   Future<bool> openPictureInPictureSettings() async =>
       (await _channel.invokeMethod<bool>('openPipSettings')) ?? false;
 }
@@ -66,6 +74,9 @@ class PreviewPowerSettings implements PowerSettings {
 
   @override
   Future<bool> openPictureInPictureSettings() async => false;
+
+  @override
+  Future<bool> openAppPermissions() async => false;
 }
 
 final powerSettingsProvider = Provider<PowerSettings>((ref) {

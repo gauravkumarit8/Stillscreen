@@ -35,6 +35,7 @@ List<String> stepsFor(String manufacturer) {
     return [
       'Turn on Autostart for Stillscreen.',
       'In battery settings for Stillscreen, choose No restrictions.',
+      'In Other permissions for Stillscreen, allow "Display pop-up windows while running in the background".',
       'Open recent apps, long-press the Stillscreen card, and tap the lock icon.',
     ];
   }
@@ -70,3 +71,8 @@ List<String> stepsFor(String manufacturer) {
     'If your phone has a lock option in recent apps, lock Stillscreen there.',
   ];
 }
+
+/// Xiaomi phones block screens that open from the background unless this
+/// permission is allowed, which stops the block screen from appearing.
+bool needsPopupPermission(String manufacturer) =>
+    _matches(manufacturer, ['xiaomi', 'redmi', 'poco']);

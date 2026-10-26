@@ -56,6 +56,9 @@ abstract class BlockingEngine {
 
   /// The last app the service saw and the last time it tried to block one.
   Future<BlockDiagnostics> blockDiagnostics();
+
+  /// Why Android last stopped the app, newest first. Empty before Android 11.
+  Future<List<ProcessExit>> recentExits();
 }
 
 class AndroidBlockingEngine implements BlockingEngine {
@@ -163,6 +166,15 @@ class AndroidBlockingEngine implements BlockingEngine {
     final raw = await _channel.invokeMapMethod<Object?, Object?>('blockDiagnostics');
     return raw == null ? const BlockDiagnostics() : BlockDiagnostics.fromMap(raw);
   }
+
+  @override
+  Future<List<ProcessExit>> recentExits() async {
+    final raw = await _channel.invokeListMethod<Object?>('processExits');
+    return (raw ?? const <Object?>[])
+        .whereType<Map<Object?, Object?>>()
+        .map(ProcessExit.fromMap)
+        .toList();
+  }
 }
 
 /// Used on web / desktop so the UI can be previewed without real blocking.
@@ -232,6 +244,9 @@ class PreviewBlockingEngine implements BlockingEngine {
 
   @override
   Future<BlockDiagnostics> blockDiagnostics() async => const BlockDiagnostics();
+
+  @override
+  Future<List<ProcessExit>> recentExits() async => const [];
 }
 
 final blockingEngineProvider = Provider<BlockingEngine>((ref) {

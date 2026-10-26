@@ -246,6 +246,10 @@ class MainActivity : FlutterActivity() {
 
                     "blockDiagnostics" -> result.success(BlockStore.diagnostics(this))
 
+                    "processExits" -> result.success(recentExits())
+
+                    "openAppPermissions" -> result.success(openMiuiPermissions())
+
                     "shareImage" -> {
                         val args = call.arguments as Map<*, *>
                         val bytes = args["bytes"] as? ByteArray
@@ -337,6 +341,64 @@ class MainActivity : FlutterActivity() {
         true
     } catch (e: Exception) {
         false
+    }
+
+    /**
+     * Xiaomi (MIUI and HyperOS) keeps "Display pop-up windows while running in
+     * the background" in its own permission screen. Without it the phone
+     * silently refuses to open the block screen. Returns false when the Xiaomi
+     * screen is not there, and the Flutter side falls back to app info.
+     */
+    private fun openMiuiPermissions(): Boolean {
+        val editor = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
+            setClassName(
+                "com.miui.securitycenter",
+                "com.miui.permcenter.permissions.PermissionsEditorActivity"
+            )
+            putExtra("extra_pkgname", packageName)
+        }
+        if (tryStart(editor)) return true
+        val plain = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
+            setPackage("com.miui.securitycenter")
+            putExtra("extra_pkgname", packageName)
+        }
+        return tryStart(plain)
+    }
+
+    /** Why Android last stopped this app, newest first. Needs Android 11. */
+    private fun recentExits(): List<Map<String, Any>> {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
+        return try {
+            val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            am.getHistoricalProcessExitReasons(packageName, 0, 4).map { info ->
+                mapOf(
+                    "reason" to exitReasonText(info.reason),
+                    "at" to info.timestamp,
+                    "detail" to (info.description ?: ""),
+                )
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    private fun exitReasonText(code: Int): String = when (code) {
+        1 -> "the app closed itself"
+        2 -> "killed by the system"
+        3 -> "killed for low memory"
+        4 -> "crashed"
+        5 -> "crashed (native code)"
+        6 -> "stopped responding"
+        7 -> "failed to start"
+        8 -> "a permission changed"
+        9 -> "used too many resources"
+        10 -> "closed by you"
+        11 -> "stopped by a user switch"
+        12 -> "a service it needed stopped"
+        14 -> "frozen by the phone"
+        15 -> "app state changed"
+        16 -> "app was updated"
+        else -> "stopped for another reason"
     }
 
     private fun openAppInfo(): Boolean = tryStart(

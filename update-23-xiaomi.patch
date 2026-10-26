@@ -1,0 +1,392 @@
+diff --git a/android/app/src/main/kotlin/app/stillscreen/focus/BlockerAccessibilityService.kt b/android/app/src/main/kotlin/app/stillscreen/focus/BlockerAccessibilityService.kt
+index 649d02f..734a049 100644
+--- a/android/app/src/main/kotlin/app/stillscreen/focus/BlockerAccessibilityService.kt
++++ b/android/app/src/main/kotlin/app/stillscreen/focus/BlockerAccessibilityService.kt
+@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
+ import android.content.Intent
+ import android.os.Handler
+ import android.os.Looper
++import android.widget.Toast
+ import android.view.accessibility.AccessibilityEvent
+ 
+ class BlockerAccessibilityService : AccessibilityService() {
+@@ -119,6 +120,16 @@ class BlockerAccessibilityService : AccessibilityService() {
+             handler.postDelayed({
+                 if (ownScreenAt < launchedAt) {
+                     performGlobalAction(GLOBAL_ACTION_HOME)
++                    val label = try {
++                        packageManager.getApplicationLabel(
++                            packageManager.getApplicationInfo(pkg, 0)
++                        ).toString()
++                    } catch (e: Exception) {
++                        pkg
++                    }
++                    Toast.makeText(
++                        this, "$label is blocked during your focus session", Toast.LENGTH_SHORT
++                    ).show()
+                     BlockStore.recordAttempt(
+                         this, pkg, "block screen did not appear, sent Home instead"
+                     )
+diff --git a/android/app/src/main/kotlin/app/stillscreen/focus/MainActivity.kt b/android/app/src/main/kotlin/app/stillscreen/focus/MainActivity.kt
+index 4ad748b..86592d8 100644
+--- a/android/app/src/main/kotlin/app/stillscreen/focus/MainActivity.kt
++++ b/android/app/src/main/kotlin/app/stillscreen/focus/MainActivity.kt
+@@ -246,6 +246,10 @@ class MainActivity : FlutterActivity() {
+ 
+                     "blockDiagnostics" -> result.success(BlockStore.diagnostics(this))
+ 
++                    "processExits" -> result.success(recentExits())
++
++                    "openAppPermissions" -> result.success(openMiuiPermissions())
++
+                     "shareImage" -> {
+                         val args = call.arguments as Map<*, *>
+                         val bytes = args["bytes"] as? ByteArray
+@@ -339,6 +343,64 @@ class MainActivity : FlutterActivity() {
+         false
+     }
+ 
++    /**
++     * Xiaomi (MIUI and HyperOS) keeps "Display pop-up windows while running in
++     * the background" in its own permission screen. Without it the phone
++     * silently refuses to open the block screen. Returns false when the Xiaomi
++     * screen is not there, and the Flutter side falls back to app info.
++     */
++    private fun openMiuiPermissions(): Boolean {
++        val editor = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
++            setClassName(
++                "com.miui.securitycenter",
++                "com.miui.permcenter.permissions.PermissionsEditorActivity"
++            )
++            putExtra("extra_pkgname", packageName)
++        }
++        if (tryStart(editor)) return true
++        val plain = Intent("miui.intent.action.APP_PERM_EDITOR").apply {
++            setPackage("com.miui.securitycenter")
++            putExtra("extra_pkgname", packageName)
++        }
++        return tryStart(plain)
++    }
++
++    /** Why Android last stopped this app, newest first. Needs Android 11. */
++    private fun recentExits(): List<Map<String, Any>> {
++        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return emptyList()
++        return try {
++            val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
++            am.getHistoricalProcessExitReasons(packageName, 0, 4).map { info ->
++                mapOf(
++                    "reason" to exitReasonText(info.reason),
++                    "at" to info.timestamp,
++                    "detail" to (info.description ?: ""),
++                )
++            }
++        } catch (e: Exception) {
++            emptyList()
++        }
++    }
++
++    private fun exitReasonText(code: Int): String = when (code) {
++        1 -> "the app closed itself"
++        2 -> "killed by the system"
++        3 -> "killed for low memory"
++        4 -> "crashed"
++        5 -> "crashed (native code)"
++        6 -> "stopped responding"
++        7 -> "failed to start"
++        8 -> "a permission changed"
++        9 -> "used too many resources"
++        10 -> "closed by you"
++        11 -> "stopped by a user switch"
++        12 -> "a service it needed stopped"
++        14 -> "frozen by the phone"
++        15 -> "app state changed"
++        16 -> "app was updated"
++        else -> "stopped for another reason"
++    }
++
+     private fun openAppInfo(): Boolean = tryStart(
+         Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+     )
+diff --git a/lib/core/battery_guide.dart b/lib/core/battery_guide.dart
+index 8838bf5..8450897 100644
+--- a/lib/core/battery_guide.dart
++++ b/lib/core/battery_guide.dart
+@@ -35,6 +35,7 @@ List<String> stepsFor(String manufacturer) {
+     return [
+       'Turn on Autostart for Stillscreen.',
+       'In battery settings for Stillscreen, choose No restrictions.',
++      'In Other permissions for Stillscreen, allow "Display pop-up windows while running in the background".',
+       'Open recent apps, long-press the Stillscreen card, and tap the lock icon.',
+     ];
+   }
+@@ -70,3 +71,8 @@ List<String> stepsFor(String manufacturer) {
+     'If your phone has a lock option in recent apps, lock Stillscreen there.',
+   ];
+ }
++
++/// Xiaomi phones block screens that open from the background unless this
++/// permission is allowed, which stops the block screen from appearing.
++bool needsPopupPermission(String manufacturer) =>
++    _matches(manufacturer, ['xiaomi', 'redmi', 'poco']);
+diff --git a/lib/core/block_diagnostics.dart b/lib/core/block_diagnostics.dart
+index d470487..333016c 100644
+--- a/lib/core/block_diagnostics.dart
++++ b/lib/core/block_diagnostics.dart
+@@ -46,3 +46,28 @@ String describeAttempt(BlockDiagnostics d, DateTime now) {
+   final when = timeAgo(DateTime.fromMillisecondsSinceEpoch(d.attemptAt), now);
+   return '${d.attemptPackage}: ${d.attemptResult}, $when.';
+ }
++
++/// One time Android stopped the app, as recorded by the phone.
++class ProcessExit {
++  const ProcessExit({required this.reason, required this.at, this.detail = ''});
++
++  final String reason;
++  final int at;
++  final String detail;
++
++  factory ProcessExit.fromMap(Map<Object?, Object?> map) => ProcessExit(
++        reason: (map['reason'] as String?) ?? '',
++        at: (map['at'] as num?)?.toInt() ?? 0,
++        detail: (map['detail'] as String?) ?? '',
++      );
++}
++
++/// Up to three recent stops, one per line, newest first.
++String describeExits(List<ProcessExit> exits, DateTime now) {
++  if (exits.isEmpty) return 'No recent stops recorded on this phone.';
++  return exits.take(3).map((e) {
++    final when = timeAgo(DateTime.fromMillisecondsSinceEpoch(e.at), now);
++    final base = '${e.reason}, $when';
++    return e.detail.isEmpty ? base : '$base (${e.detail})';
++  }).join('\n');
++}
+diff --git a/lib/core/blocking/blocking_engine.dart b/lib/core/blocking/blocking_engine.dart
+index 78c3aa7..c9404c8 100644
+--- a/lib/core/blocking/blocking_engine.dart
++++ b/lib/core/blocking/blocking_engine.dart
+@@ -56,6 +56,9 @@ abstract class BlockingEngine {
+ 
+   /// The last app the service saw and the last time it tried to block one.
+   Future<BlockDiagnostics> blockDiagnostics();
++
++  /// Why Android last stopped the app, newest first. Empty before Android 11.
++  Future<List<ProcessExit>> recentExits();
+ }
+ 
+ class AndroidBlockingEngine implements BlockingEngine {
+@@ -163,6 +166,15 @@ class AndroidBlockingEngine implements BlockingEngine {
+     final raw = await _channel.invokeMapMethod<Object?, Object?>('blockDiagnostics');
+     return raw == null ? const BlockDiagnostics() : BlockDiagnostics.fromMap(raw);
+   }
++
++  @override
++  Future<List<ProcessExit>> recentExits() async {
++    final raw = await _channel.invokeListMethod<Object?>('processExits');
++    return (raw ?? const <Object?>[])
++        .whereType<Map<Object?, Object?>>()
++        .map(ProcessExit.fromMap)
++        .toList();
++  }
+ }
+ 
+ /// Used on web / desktop so the UI can be previewed without real blocking.
+@@ -232,6 +244,9 @@ class PreviewBlockingEngine implements BlockingEngine {
+ 
+   @override
+   Future<BlockDiagnostics> blockDiagnostics() async => const BlockDiagnostics();
++
++  @override
++  Future<List<ProcessExit>> recentExits() async => const [];
+ }
+ 
+ final blockingEngineProvider = Provider<BlockingEngine>((ref) {
+diff --git a/lib/core/power/power_settings.dart b/lib/core/power/power_settings.dart
+index 6852aaf..674c96a 100644
+--- a/lib/core/power/power_settings.dart
++++ b/lib/core/power/power_settings.dart
+@@ -13,6 +13,10 @@ abstract class PowerSettings {
+   Future<bool> openAutostartSettings();
+   Future<void> openAppInfo();
+ 
++  /// Xiaomi's own permission screen, where background pop-ups are allowed.
++  /// False when the phone has no such screen.
++  Future<bool> openAppPermissions();
++
+   /// Where picture-in-picture can be switched off per app. False if the phone
+   /// has no such screen.
+   Future<bool> openPictureInPictureSettings();
+@@ -43,6 +47,10 @@ class AndroidPowerSettings implements PowerSettings {
+     await _channel.invokeMethod<void>('openAppInfo');
+   }
+ 
++  @override
++  Future<bool> openAppPermissions() async =>
++      (await _channel.invokeMethod<bool>('openAppPermissions')) ?? false;
++
+   @override
+   Future<bool> openPictureInPictureSettings() async =>
+       (await _channel.invokeMethod<bool>('openPipSettings')) ?? false;
+@@ -66,6 +74,9 @@ class PreviewPowerSettings implements PowerSettings {
+ 
+   @override
+   Future<bool> openPictureInPictureSettings() async => false;
++
++  @override
++  Future<bool> openAppPermissions() async => false;
+ }
+ 
+ final powerSettingsProvider = Provider<PowerSettings>((ref) {
+diff --git a/lib/features/health/health_screen.dart b/lib/features/health/health_screen.dart
+index 5255a93..471871f 100644
+--- a/lib/features/health/health_screen.dart
++++ b/lib/features/health/health_screen.dart
+@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
+ import '../../app/theme.dart';
+ import '../../core/block_diagnostics.dart';
+ import '../../core/app_config.dart';
++import '../../core/battery_guide.dart';
+ import '../../core/blocking/blocking_engine.dart';
+ import '../../core/power/power_settings.dart';
+ import '../../core/reminder_service.dart';
+@@ -29,6 +30,8 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
+   bool? _notificationsOn;
+   int _lastActive = 0;
+   BlockDiagnostics _diag = const BlockDiagnostics();
++  List<ProcessExit> _exits = const [];
++  String _maker = '';
+ 
+   @override
+   void initState() {
+@@ -57,6 +60,8 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
+     final notifications = await ref.read(reminderServiceProvider).notificationsAllowed();
+     final last = await engine.lastActiveMillis();
+     final diag = await engine.blockDiagnostics();
++    final exits = await engine.recentExits();
++    final maker = await ref.read(powerSettingsProvider).manufacturer();
+     if (!mounted) return;
+     setState(() {
+       _blockingOn = blocking;
+@@ -65,6 +70,8 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
+       _notificationsOn = notifications;
+       _lastActive = last;
+       _diag = diag;
++      _exits = exits;
++      _maker = maker;
+     });
+   }
+ 
+@@ -88,6 +95,9 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
+         'Blocking service running: ${_serviceRunning == true ? 'yes' : 'no'}\n'
+         'Last app seen: ${describeSeen(_diag, DateTime.now())}\n'
+         'Last block attempt: ${describeAttempt(_diag, DateTime.now())}\n'
++        'Phone: $_maker\n'
++        'Why the app last stopped: '
++        '${describeExits(_exits, DateTime.now()).replaceAll('\n', '; ')}\n'
+         'Battery optimization off: ${_batteryOff == true ? 'yes' : 'no'}\n'
+         'Notifications: ${_notificationsOn == true ? 'on' : 'off'}\n'
+         'Last seen working: ${_lastActive == 0 ? 'never' : timeAgo(DateTime.fromMillisecondsSinceEpoch(_lastActive), DateTime.now())}\n';
+@@ -171,6 +181,27 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
+             detail: describeAttempt(_diag, DateTime.now()),
+           ),
+           const SizedBox(height: 12),
++          _CheckRow(
++            title: 'Why the app last stopped',
++            ok: null,
++            detail: describeExits(_exits, DateTime.now()),
++          ),
++          if (needsPopupPermission(_maker)) ...[
++            const SizedBox(height: 12),
++            _CheckRow(
++              title: 'Allow pop-ups (Xiaomi)',
++              ok: null,
++              detail: 'Xiaomi phones stop the block screen from opening unless '
++                  'Stillscreen may display pop-up windows while running in the '
++                  'background. In Other permissions, allow it.',
++              actionLabel: 'Open permissions',
++              onAction: () async {
++                final opened = await power.openAppPermissions();
++                if (!opened) await power.openAppInfo();
++              },
++            ),
++          ],
++          const SizedBox(height: 12),
+           _CheckRow(
+             title: 'Battery optimization',
+             ok: _batteryOff,
+diff --git a/test/battery_guide_test.dart b/test/battery_guide_test.dart
+index bc1ae78..fab2c6f 100644
+--- a/test/battery_guide_test.dart
++++ b/test/battery_guide_test.dart
+@@ -24,4 +24,19 @@ void main() {
+     expect(hasAutostartScreen('samsung'), isFalse);
+     expect(hasAutostartScreen('Google'), isFalse);
+   });
++
++  test('Xiaomi steps include the background pop-up permission', () {
++    expect(
++      stepsFor('Xiaomi').any((s) => s.contains('pop-up')),
++      isTrue,
++    );
++  });
++
++  test('only Xiaomi-family phones need the pop-up permission', () {
++    expect(needsPopupPermission('Xiaomi'), isTrue);
++    expect(needsPopupPermission('POCO'), isTrue);
++    expect(needsPopupPermission('Redmi'), isTrue);
++    expect(needsPopupPermission('samsung'), isFalse);
++    expect(needsPopupPermission(''), isFalse);
++  });
+ }
+diff --git a/test/block_diagnostics_test.dart b/test/block_diagnostics_test.dart
+index a324ffa..8e2bf12 100644
+--- a/test/block_diagnostics_test.dart
++++ b/test/block_diagnostics_test.dart
+@@ -51,4 +51,47 @@ void main() {
+     expect(d.seenAt, 0);
+     expect(d.attemptResult, '');
+   });
++
++  group('describeExits', () {
++    test('no stops recorded says so', () {
++      expect(describeExits(const [], now), contains('No recent stops'));
++    });
++
++    test('lists the reason and when, newest first, with detail', () {
++      final exits = [
++        ProcessExit(
++          reason: 'killed by the system',
++          at: now.subtract(const Duration(minutes: 2)).millisecondsSinceEpoch,
++          detail: 'freezer',
++        ),
++        ProcessExit(
++          reason: 'crashed',
++          at: now.subtract(const Duration(hours: 1)).millisecondsSinceEpoch,
++        ),
++      ];
++      final lines = describeExits(exits, now).split('\n');
++      expect(lines.length, 2);
++      expect(lines.first, contains('killed by the system'));
++      expect(lines.first, contains('(freezer)'));
++      expect(lines.last, contains('crashed'));
++      expect(lines.last, isNot(contains('(')));
++    });
++
++    test('shows at most three stops', () {
++      final exits = List.generate(
++        5,
++        (i) => ProcessExit(
++          reason: 'stop $i',
++          at: now.subtract(Duration(minutes: i + 1)).millisecondsSinceEpoch,
++        ),
++      );
++      expect(describeExits(exits, now).split('\n').length, 3);
++    });
++
++    test('fromMap tolerates missing values', () {
++      final e = ProcessExit.fromMap({});
++      expect(e.at, 0);
++      expect(e.reason, '');
++    });
++  });
+ }

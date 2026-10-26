@@ -46,3 +46,28 @@ String describeAttempt(BlockDiagnostics d, DateTime now) {
   final when = timeAgo(DateTime.fromMillisecondsSinceEpoch(d.attemptAt), now);
   return '${d.attemptPackage}: ${d.attemptResult}, $when.';
 }
+
+/// One time Android stopped the app, as recorded by the phone.
+class ProcessExit {
+  const ProcessExit({required this.reason, required this.at, this.detail = ''});
+
+  final String reason;
+  final int at;
+  final String detail;
+
+  factory ProcessExit.fromMap(Map<Object?, Object?> map) => ProcessExit(
+        reason: (map['reason'] as String?) ?? '',
+        at: (map['at'] as num?)?.toInt() ?? 0,
+        detail: (map['detail'] as String?) ?? '',
+      );
+}
+
+/// Up to three recent stops, one per line, newest first.
+String describeExits(List<ProcessExit> exits, DateTime now) {
+  if (exits.isEmpty) return 'No recent stops recorded on this phone.';
+  return exits.take(3).map((e) {
+    final when = timeAgo(DateTime.fromMillisecondsSinceEpoch(e.at), now);
+    final base = '${e.reason}, $when';
+    return e.detail.isEmpty ? base : '$base (${e.detail})';
+  }).join('\n');
+}
