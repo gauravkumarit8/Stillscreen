@@ -18,6 +18,9 @@ class BlockerAccessibilityService : AccessibilityService() {
     @Volatile
     private var ownScreenAt = 0L
 
+    private var lastBlockPkg: String? = null
+    private var lastBlockAt = 0L
+
     companion object {
         /**
          * True only while Android has this service connected and running. The
@@ -80,10 +83,13 @@ class BlockerAccessibilityService : AccessibilityService() {
             return
         }
 
-        // Ignore repeat events for the same app.
-        if (pkg == lastPackage) return
+        // An event for the app already on record is a repeat. Repeats are
+        // normally ignored, but a blocked app that shows up again must be
+        // blocked again. Some phones do not report the person leaving an app,
+        // so the "other app in between" is not always seen.
+        val repeat = pkg == lastPackage
         lastPackage = pkg
-        BlockStore.recordSeen(this, pkg)
+        if (!repeat) BlockStore.recordSeen(this, pkg)
 
         // Blocking wins over the mindful pause.
         val blockReason = when {
@@ -98,8 +104,34 @@ class BlockerAccessibilityService : AccessibilityService() {
             pkg in PauseStore.getApps(this) &&
             !PauseStore.isInGrace(this, pkg)
 
-        if (blockReason == null && !wantsPause) return
-        if (pkg in BlockStore.protectedPackages(this)) return
+        if (repeat) {
+            // Skip only if this very app was blocked a moment ago, which is
+            // the block screen's own window settling.
+            val justBlocked = pkg == lastBlockPkg && now - lastBlockAt < 3_000L
+            if (blockReason == null || justBlocked) {
+                BlockStore.logEvent(this, pkg, "same app again, ignored")
+                return
+            }
+        }
+
+        if (blockReason == null && !wantsPause) {
+            val why = when {
+                !BlockStore.isSessionActive(this) -> "no session running"
+                pkg !in BlockStore.getBlocked(this) -> "not in your blocked list"
+                else -> "not blocked"
+            }
+            BlockStore.logEvent(this, pkg, why)
+            return
+        }
+        if (pkg in BlockStore.protectedPackages(this)) {
+            BlockStore.logEvent(this, pkg, "protected app, never blocked")
+            return
+        }
+        BlockStore.logEvent(this, pkg, if (blockReason != null) "blocking it" else "mindful pause")
+        if (blockReason != null) {
+            lastBlockPkg = pkg
+            lastBlockAt = now
+        }
 
         val intent = if (blockReason != null) {
             Intent(this, BlockActivity::class.java).apply {

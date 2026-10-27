@@ -9,6 +9,7 @@ class BlockDiagnostics {
     this.attemptPackage = '',
     this.attemptAt = 0,
     this.attemptResult = '',
+    this.eventLog = '',
   });
 
   final String seenPackage;
@@ -16,6 +17,9 @@ class BlockDiagnostics {
   final String attemptPackage;
   final int attemptAt;
   final String attemptResult;
+
+  /// The service's recent decisions, newest first, one per line.
+  final String eventLog;
 
   factory BlockDiagnostics.fromMap(Map<Object?, Object?> map) {
     String text(String key) => (map[key] as String?) ?? '';
@@ -26,6 +30,7 @@ class BlockDiagnostics {
       attemptPackage: text('attemptPackage'),
       attemptAt: number('attemptAt'),
       attemptResult: text('attemptResult'),
+      eventLog: text('eventLog'),
     );
   }
 }
@@ -71,3 +76,7 @@ String describeExits(List<ProcessExit> exits, DateTime now) {
     return e.detail.isEmpty ? base : '$base (${e.detail})';
   }).join('\n');
 }
+
+String describeLog(BlockDiagnostics d) => d.eventLog.trim().isEmpty
+    ? 'Nothing yet. Open some apps and check back.'
+    : d.eventLog.trim();

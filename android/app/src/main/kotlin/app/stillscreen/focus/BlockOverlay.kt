@@ -32,7 +32,13 @@ class BlockOverlay(private val service: AccessibilityService) {
 
     /** Returns false if the phone would not let the window be added. */
     fun show(pkg: String, windDown: Boolean): Boolean {
-        if (view != null) return true
+        val existing = view
+        if (existing != null) {
+            // If the system removed the window, forget it and draw a new one.
+            if (existing.isAttachedToWindow) return true
+            view = null
+            blockedPackage = null
+        }
         return try {
             val wm = service.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             val content = build(windDown)

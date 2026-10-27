@@ -96,6 +96,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
         'Last app seen: ${describeSeen(_diag, DateTime.now())}\n'
         'Last block attempt: ${describeAttempt(_diag, DateTime.now())}\n'
         'Phone: $_maker\n'
+        'Recent activity:\n${describeLog(_diag)}\n'
         'Why the app last stopped: '
         '${describeExits(_exits, DateTime.now()).replaceAll('\n', '; ')}\n'
         'Battery optimization off: ${_batteryOff == true ? 'yes' : 'no'}\n'
@@ -179,6 +180,12 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
             title: 'Last block attempt',
             ok: null,
             detail: describeAttempt(_diag, DateTime.now()),
+          ),
+          const SizedBox(height: 12),
+          _CheckRow(
+            title: 'Recent activity (newest first)',
+            ok: null,
+            detail: describeLog(_diag),
           ),
           const SizedBox(height: 12),
           _CheckRow(

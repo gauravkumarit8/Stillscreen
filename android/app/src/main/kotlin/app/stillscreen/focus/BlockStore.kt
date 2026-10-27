@@ -18,6 +18,7 @@ object BlockStore {
     private const val KEY_TRY_PKG = "try_pkg"
     private const val KEY_TRY_AT = "try_at"
     private const val KEY_TRY_RESULT = "try_result"
+    private const val KEY_EVENT_LOG = "event_log"
     private const val KEY_REASON = "reason"
     private const val LEDGER_PREFIX = "mins_"
     private const val KEY_WD_ENABLED = "wd_enabled"
@@ -148,6 +149,23 @@ object BlockStore {
             .apply()
     }
 
+    /**
+     * Keeps the last dozen decisions the service made, newest first, so the
+     * health check can show why an app was or was not blocked. A line that
+     * only repeats the previous one is skipped.
+     */
+    fun logEvent(ctx: Context, pkg: String, what: String) {
+        val p = prefs(ctx)
+        val lines = (p.getString(KEY_EVENT_LOG, "") ?: "")
+            .split("\n")
+            .filter { it.isNotEmpty() }
+        if (lines.firstOrNull()?.substringAfter(' ') == "$pkg $what") return
+        val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+            .format(java.util.Date())
+        val next = (listOf("$time $pkg $what") + lines).take(12)
+        p.edit().putString(KEY_EVENT_LOG, next.joinToString("\n")).apply()
+    }
+
     fun diagnostics(ctx: Context): Map<String, Any> {
         val p = prefs(ctx)
         return mapOf(
@@ -156,6 +174,7 @@ object BlockStore {
             "attemptPackage" to (p.getString(KEY_TRY_PKG, "") ?: ""),
             "attemptAt" to p.getLong(KEY_TRY_AT, 0L),
             "attemptResult" to (p.getString(KEY_TRY_RESULT, "") ?: ""),
+            "eventLog" to (p.getString(KEY_EVENT_LOG, "") ?: ""),
         )
     }
 

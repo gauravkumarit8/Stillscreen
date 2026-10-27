@@ -94,4 +94,26 @@ void main() {
       expect(e.reason, '');
     });
   });
+
+  group('event log', () {
+    test('an empty log reads as a prompt', () {
+      expect(describeLog(const BlockDiagnostics()), contains('Nothing yet'));
+    });
+
+    test('the log is shown as written, trimmed', () {
+      const d = BlockDiagnostics(
+        eventLog: '12:31:05 com.google.android.youtube blocking it\n'
+            '12:30:58 com.miui.home no session running\n',
+      );
+      final text = describeLog(d);
+      expect(text.split('\n').length, 2);
+      expect(text, startsWith('12:31:05'));
+      expect(text, isNot(endsWith('\n')));
+    });
+
+    test('fromMap carries the log across', () {
+      final d = BlockDiagnostics.fromMap({'eventLog': 'a b c'});
+      expect(d.eventLog, 'a b c');
+    });
+  });
 }
