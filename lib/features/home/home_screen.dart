@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../core/review_prompt.dart';
 import '../../core/achievements.dart';
 import '../../core/battery_guide.dart';
 import '../../core/blocking/blocking_engine.dart';
@@ -26,6 +27,7 @@ import 'custom_length_dialog.dart';
 import 'demo_menu.dart';
 import 'end_session_dialog.dart';
 import 'session_complete_dialog.dart';
+import 'review_card.dart';
 import 'session_ring.dart';
 import 'start_guard_dialogs.dart';
 
@@ -387,6 +389,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ],
           if (_permissionGranted && !ref.watch(batteryGuideDoneProvider)) ...[
             const BatteryGuideCard(),
+            const SizedBox(height: 16),
+          ],
+          if (!active && _permissionGranted && ref.watch(reviewCardVisibleProvider)) ...[
+            const ReviewCard(),
             const SizedBox(height: 16),
           ],
           SessionRing(

@@ -1,6 +1,13 @@
-/// Set this to your Google Play link once the app is published. It is added to
-/// the text that goes with a shared streak. Leave it empty until then.
-const storeLink = '';
+/// The app's Google Play ID. It is part of the store link below.
+const playPackageId = 'app.stillscreen.focus';
+
+/// Your Google Play link. It is added to the text that goes with a shared
+/// streak, and it is where the rating button sends people.
+const storeLink =
+    'https://play.google.com/store/apps/details?id=$playPackageId';
+
+/// Opens the Play Store app straight on the listing.
+const playMarketUri = 'market://details?id=$playPackageId';
 
 /// Where the "Send feedback" button sends email.
 const feedbackEmail = 'gaurav954624@gmail.com';

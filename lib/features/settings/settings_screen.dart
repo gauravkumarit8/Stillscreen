@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/review_prompt.dart';
 import '../../core/achievements.dart';
 import '../../core/app_config.dart';
 import '../../core/goal.dart';
@@ -61,6 +62,15 @@ class SettingsScreen extends ConsumerWidget {
           const SnackBar(
             content: Text('No email app found. You can write to $feedbackEmail.'),
           ),
+        );
+      }
+    }
+
+    Future<void> rateOnPlay() async {
+      final opened = await openPlayListing(ref.read(supportServiceProvider));
+      if (!opened && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Google Play.')),
         );
       }
     }
@@ -192,6 +202,12 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: const Text('Opens your email app'),
             trailing: const Icon(Icons.chevron_right),
             onTap: sendFeedback,
+          ),
+          ListTile(
+            title: const Text('Rate Stillscreen'),
+            subtitle: const Text('Opens Google Play'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: rateOnPlay,
           ),
           _Header('About'),
           ListTile(
