@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../core/levels.dart';
 import '../../core/review_prompt.dart';
 import '../../core/achievements.dart';
 import '../../core/battery_guide.dart';
@@ -27,6 +28,7 @@ import 'custom_length_dialog.dart';
 import 'demo_menu.dart';
 import 'end_session_dialog.dart';
 import 'session_complete_dialog.dart';
+import '../stats/insight_cards.dart';
 import 'review_card.dart';
 import 'session_ring.dart';
 import 'start_guard_dialogs.dart';
@@ -178,6 +180,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       goal: stats.todayGoal,
       badges: fresh,
       round: round,
+      levelUp: levelReachedBy(
+        totalAfter: stats.totalMinutes,
+        sessionMinutes: minutes,
+      ),
     );
     if (!mounted) return;
     switch (choice) {
@@ -374,6 +380,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               style: text.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           _StreakRow(stats: stats, onTap: () => context.push('/stats')),
+          const SizedBox(height: 8),
+          LevelRow(
+            level: levelFor(stats.totalMinutes),
+            onTap: () => context.push('/stats'),
+          ),
           const SizedBox(height: 12),
           if (mode == UserMode.student) ...[
             const ExamCard(),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
 import '../../core/achievements.dart';
+import '../../core/levels.dart';
 import '../../core/pomodoro.dart';
 
 enum CompleteChoice { done, again, breakTime }
@@ -16,6 +17,7 @@ Future<CompleteChoice> showSessionComplete(
   required int goal,
   required List<Achievement> badges,
   PomodoroRound? round,
+  FocusLevel? levelUp,
 }) async {
   final choice = await showDialog<CompleteChoice>(
     context: context,
@@ -63,6 +65,36 @@ Future<CompleteChoice> showSessionComplete(
               Text(todayMinutes >= goal
                   ? 'Daily goal reached'
                   : '$todayMinutes of $goal min today'),
+              if (levelUp != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: stillTeal.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: stillTeal),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.spa_outlined, color: stillTeal),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Level up!',
+                              style: text.titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            Text('You are now ${levelUp.label}'),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               if (badges.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Text(

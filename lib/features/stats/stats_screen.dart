@@ -7,9 +7,13 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme.dart';
 import '../../core/achievements.dart';
 import '../../core/goal.dart';
+import '../../core/insights.dart';
+import '../../core/levels.dart';
 import '../../core/pause.dart';
 import '../../core/session_log.dart';
+import '../../core/weekly_recap.dart';
 import 'add_time_dialog.dart';
+import 'insight_cards.dart';
 import 'streak_share_dialog.dart';
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -35,6 +39,7 @@ class StatsScreen extends ConsumerWidget {
     final todayProgress = (stats.todayMinutes / goal).clamp(0.0, 1.0);
     final badges = computeAchievements(stats);
     final unlocked = badges.where((a) => a.unlocked).length;
+    final insights = focusInsights(stats.log);
 
     return Scaffold(
       appBar: AppBar(
@@ -96,6 +101,8 @@ class StatsScreen extends ConsumerWidget {
             style: text.bodySmall,
           ),
           const SizedBox(height: 16),
+          LevelCard(level: levelFor(stats.totalMinutes)),
+          const SizedBox(height: 16),
           InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: () => context.push('/achievements'),
@@ -141,6 +148,13 @@ class StatsScreen extends ConsumerWidget {
               ? 'Goal reached. ${stats.todayMinutes} minutes focused today.'
               : '${stats.todayMinutes} of $goal minutes to keep your streak'),
           const SizedBox(height: 28),
+          RecapCard(recap: weeklyRecap(stats)),
+          const SizedBox(height: 16),
+          if (insights.hasEnoughData) ...[
+            InsightsCard(insights: insights),
+            const SizedBox(height: 16),
+          ],
+          const SizedBox(height: 12),
           ref.watch(pauseSummaryProvider).maybeWhen(
                 data: (s) => s.shownWeek == 0
                     ? const SizedBox.shrink()
