@@ -104,23 +104,30 @@ class BlockerAccessibilityService : AccessibilityService() {
             pkg in PauseStore.getApps(this) &&
             !PauseStore.isInGrace(this, pkg)
 
+        // Only write to the activity log while something could be blocked.
+        // Otherwise every app you open would fill it with noise.
+        val somethingActive =
+            BlockStore.isSessionActive(this) || BlockStore.isWindDownActive(this)
+
         if (repeat) {
             // Skip only if this very app was blocked a moment ago, which is
             // the block screen's own window settling.
             val justBlocked = pkg == lastBlockPkg && now - lastBlockAt < 3_000L
             if (blockReason == null || justBlocked) {
-                BlockStore.logEvent(this, pkg, "same app again, ignored")
+                if (somethingActive) BlockStore.logEvent(this, pkg, "same app again, ignored")
                 return
             }
         }
 
         if (blockReason == null && !wantsPause) {
-            val why = when {
-                !BlockStore.isSessionActive(this) -> "no session running"
-                pkg !in BlockStore.getBlocked(this) -> "not in your blocked list"
-                else -> "not blocked"
+            if (somethingActive) {
+                val why = if (pkg !in BlockStore.getBlocked(this)) {
+                    "not in your blocked list"
+                } else {
+                    "not blocked"
+                }
+                BlockStore.logEvent(this, pkg, why)
             }
-            BlockStore.logEvent(this, pkg, why)
             return
         }
         if (pkg in BlockStore.protectedPackages(this)) {

@@ -95,6 +95,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
         'Blocking service running: ${_serviceRunning == true ? 'yes' : 'no'}\n'
         'Last app seen: ${describeSeen(_diag, DateTime.now())}\n'
         'Last block attempt: ${describeAttempt(_diag, DateTime.now())}\n'
+        'Blocking state: ${describeState(_diag)}\n'
         'Phone: $_maker\n'
         'Recent activity:\n${describeLog(_diag)}\n'
         'Why the app last stopped: '
@@ -160,6 +161,12 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
             actionLabel:
                 _serviceRunning == false ? 'Open Accessibility settings' : null,
             onAction: ref.read(blockingEngineProvider).openPermissionSettings,
+          ),
+          const SizedBox(height: 12),
+          _CheckRow(
+            title: 'Blocking state',
+            ok: null,
+            detail: describeState(_diag),
           ),
           const SizedBox(height: 12),
           _CheckRow(

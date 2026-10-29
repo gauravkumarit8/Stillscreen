@@ -116,4 +116,21 @@ void main() {
       expect(d.eventLog, 'a b c');
     });
   });
+
+  group('blocking state', () {
+    test('missing state says it is not available', () {
+      expect(describeState(const BlockDiagnostics()), 'Not available yet.');
+    });
+
+    test('state is shown as the phone wrote it', () {
+      const d = BlockDiagnostics(
+        state: 'Session running until 20:38:30. blocked list (1): a.b.',
+      );
+      expect(describeState(d), contains('Session running'));
+    });
+
+    test('fromMap carries the state across', () {
+      expect(BlockDiagnostics.fromMap({'state': 'x'}).state, 'x');
+    });
+  });
 }

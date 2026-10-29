@@ -10,6 +10,7 @@ class BlockDiagnostics {
     this.attemptAt = 0,
     this.attemptResult = '',
     this.eventLog = '',
+    this.state = '',
   });
 
   final String seenPackage;
@@ -21,6 +22,9 @@ class BlockDiagnostics {
   /// The service's recent decisions, newest first, one per line.
   final String eventLog;
 
+  /// A line saying whether a session is running and what it would block.
+  final String state;
+
   factory BlockDiagnostics.fromMap(Map<Object?, Object?> map) {
     String text(String key) => (map[key] as String?) ?? '';
     int number(String key) => (map[key] as num?)?.toInt() ?? 0;
@@ -31,6 +35,7 @@ class BlockDiagnostics {
       attemptAt: number('attemptAt'),
       attemptResult: text('attemptResult'),
       eventLog: text('eventLog'),
+      state: text('state'),
     );
   }
 }
@@ -80,3 +85,6 @@ String describeExits(List<ProcessExit> exits, DateTime now) {
 String describeLog(BlockDiagnostics d) => d.eventLog.trim().isEmpty
     ? 'Nothing yet. Open some apps and check back.'
     : d.eventLog.trim();
+
+String describeState(BlockDiagnostics d) =>
+    d.state.isEmpty ? 'Not available yet.' : d.state;

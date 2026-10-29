@@ -44,6 +44,10 @@ object BlockStore {
             .putLong(KEY_SESSION_START, now)
             .putLong(KEY_SESSION_END, now + durationMs)
             .apply()
+        logEvent(
+            ctx, "session",
+            "started for ${durationMs / 60_000L} min, ${getBlocked(ctx).size} app(s) in the blocked list"
+        )
     }
 
     /** The user ended the session early, or Flutter is clearing one that finished. */
@@ -55,6 +59,7 @@ object BlockStore {
             credit(ctx, start, minOf(System.currentTimeMillis(), end))
         }
         p.edit().remove(KEY_SESSION_START).remove(KEY_SESSION_END).apply()
+        if (start != 0L) logEvent(ctx, "session", "ended early")
     }
 
     /**
@@ -68,6 +73,7 @@ object BlockStore {
         if (start == 0L || end == 0L || System.currentTimeMillis() < end) return
         credit(ctx, start, end)
         p.edit().remove(KEY_SESSION_START).remove(KEY_SESSION_END).apply()
+        if (start != 0L) logEvent(ctx, "session", "finished")
     }
 
     /** Minutes focused today, as far as this side knows. Keeps the reminder quiet. */
@@ -150,7 +156,7 @@ object BlockStore {
     }
 
     /**
-     * Keeps the last dozen decisions the service made, newest first, so the
+     * Keeps the last twenty decisions the service made, newest first, so the
      * health check can show why an app was or was not blocked. A line that
      * only repeats the previous one is skipped.
      */
@@ -162,8 +168,27 @@ object BlockStore {
         if (lines.firstOrNull()?.substringAfter(' ') == "$pkg $what") return
         val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
             .format(java.util.Date())
-        val next = (listOf("$time $pkg $what") + lines).take(12)
+        val next = (listOf("$time $pkg $what") + lines).take(20)
         p.edit().putString(KEY_EVENT_LOG, next.joinToString("\n")).apply()
+    }
+
+    /** One line saying whether a session is running and what it would block. */
+    fun stateSummary(ctx: Context): String {
+        val end = prefs(ctx).getLong(KEY_SESSION_END, 0L)
+        val blocked = getBlocked(ctx).sorted()
+        val session = if (System.currentTimeMillis() < end) {
+            val until = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                .format(java.util.Date(end))
+            "Session running until $until"
+        } else {
+            "No session running"
+        }
+        val list = if (blocked.isEmpty()) {
+            "no apps in the blocked list"
+        } else {
+            "blocked list (${blocked.size}): " + blocked.take(5).joinToString(", ")
+        }
+        return "$session. $list."
     }
 
     fun diagnostics(ctx: Context): Map<String, Any> {
@@ -175,6 +200,7 @@ object BlockStore {
             "attemptAt" to p.getLong(KEY_TRY_AT, 0L),
             "attemptResult" to (p.getString(KEY_TRY_RESULT, "") ?: ""),
             "eventLog" to (p.getString(KEY_EVENT_LOG, "") ?: ""),
+            "state" to stateSummary(ctx),
         )
     }
 

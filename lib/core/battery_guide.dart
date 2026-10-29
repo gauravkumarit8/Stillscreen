@@ -36,7 +36,8 @@ List<String> stepsFor(String manufacturer) {
       'Turn on Autostart for Stillscreen.',
       'In battery settings for Stillscreen, choose No restrictions.',
       'In Other permissions for Stillscreen, allow "Display pop-up windows while running in the background".',
-      'Open recent apps, long-press the Stillscreen card, and tap the lock icon.',
+      'Open recent apps, long-press the Stillscreen card, and tap the lock icon. Never swipe Stillscreen away: that stops blocking.',
+      'After you install an update, switch Stillscreen off and on again in Accessibility settings.',
     ];
   }
   if (_matches(manufacturer, ['oppo', 'realme', 'oneplus'])) {
