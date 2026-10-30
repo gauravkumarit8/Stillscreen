@@ -83,6 +83,16 @@ class BlockActivity : Activity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        onScreen = true
+    }
+
+    override fun onPause() {
+        onScreen = false
+        super.onPause()
+    }
+
     @Deprecated("Back always returns home while blocking is active")
     override fun onBackPressed() = goHome()
 
@@ -96,6 +106,13 @@ class BlockActivity : Activity() {
     }
 
     companion object {
+        /**
+         * True only while this screen is in front and active. Created is not
+         * enough: a phone can start it behind the app that is open.
+         */
+        @Volatile
+        var onScreen: Boolean = false
+
         const val EXTRA_PACKAGE = "blocked_package"
         const val EXTRA_REASON = "block_reason"
         const val REASON_FOCUS = "focus"

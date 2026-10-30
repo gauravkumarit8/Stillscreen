@@ -188,7 +188,12 @@ object BlockStore {
         } else {
             "blocked list (${blocked.size}): " + blocked.take(5).joinToString(", ")
         }
-        return "$session. $list."
+        val pause = if (PauseStore.isEnabled(ctx)) {
+            "Mindful pause is on for ${PauseStore.getApps(ctx).size} app(s)"
+        } else {
+            "Mindful pause is off"
+        }
+        return "$session. $list. $pause."
     }
 
     fun diagnostics(ctx: Context): Map<String, Any> {

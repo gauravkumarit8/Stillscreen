@@ -164,6 +164,16 @@ class PauseActivity : Activity() {
         }.start()
     }
 
+    override fun onResume() {
+        super.onResume()
+        onScreen = true
+    }
+
+    override fun onPause() {
+        onScreen = false
+        super.onPause()
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString(STATE_COUNTED, target)
@@ -245,5 +255,9 @@ class PauseActivity : Activity() {
     companion object {
         const val EXTRA_PACKAGE = "paused_package"
         private const val STATE_COUNTED = "counted_package"
+
+        /** True only while this screen is in front and active. */
+        @Volatile
+        var onScreen: Boolean = false
     }
 }

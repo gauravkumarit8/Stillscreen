@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../core/power/power_settings.dart';
+import '../../core/session_tip.dart';
 import '../../core/levels.dart';
 import '../../core/review_prompt.dart';
 import '../../core/achievements.dart';
@@ -29,6 +33,7 @@ import 'demo_menu.dart';
 import 'end_session_dialog.dart';
 import 'session_complete_dialog.dart';
 import '../stats/insight_cards.dart';
+import 'blocking_stopped_card.dart';
 import 'review_card.dart';
 import 'session_ring.dart';
 import 'start_guard_dialogs.dart';
@@ -46,6 +51,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   static const _maxSessionMinutes = 180;
 
   bool _permissionGranted = true;
+  bool _serviceRunning = true;
+  Timer? _watch;
   bool _settling = false;
   late int _pickedMinutes;
 
@@ -56,6 +63,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         normalizeSessionMinutes(ref.read(sharedPrefsProvider).getInt(_lengthKey));
     WidgetsBinding.instance.addObserver(this);
     _refreshPermission();
+    // While a session runs, keep an eye on whether the phone has stopped
+    // the blocking service (for example after Stillscreen is swiped away).
+    _watch = Timer.periodic(const Duration(seconds: 5), (_) {
+      final end = _sessionEnd;
+      if (end != null && end.isAfter(DateTime.now())) _refreshPermission();
+    });
     // Start loading the app list now so the picker opens instantly.
     Future.microtask(() => ref.read(installedAppsProvider));
     Future.microtask(_syncReminder);
@@ -65,6 +78,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
+    _watch?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -79,8 +93,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Future<void> _refreshPermission() async {
-    final granted = await ref.read(blockingEngineProvider).isPermissionGranted();
-    if (mounted) setState(() => _permissionGranted = granted);
+    final engine = ref.read(blockingEngineProvider);
+    final granted = await engine.isPermissionGranted();
+    final running = granted ? await engine.isServiceConnected() : true;
+    if (mounted) {
+      setState(() {
+        _permissionGranted = granted;
+        _serviceRunning = running;
+      });
+    }
+  }
+
+  /// Once, when the first session starts on a phone that is known to stop
+  /// blocking when the app is swiped away.
+  Future<void> _maybeShowSessionTip() async {
+    final prefs = ref.read(sharedPrefsProvider);
+    final maker = await ref.read(powerSettingsProvider).manufacturer();
+    if (!shouldShowSessionTip(
+      manufacturer: maker,
+      alreadyShown: prefs.getBool(sessionTipShownKey) ?? false,
+    )) {
+      return;
+    }
+    await prefs.setBool(sessionTipShownKey, true);
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Keep blocking on'),
+        content: const SingleChildScrollView(child: Text(sessionTipText)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+    );
   }
 
   DateTime? get _sessionEnd {
@@ -279,6 +328,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
         ),
       );
+      await _maybeShowSessionTip();
     }
   }
 
@@ -392,6 +442,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ],
           if (mode == UserMode.professional) ...[
             const WindDownCard(),
+            const SizedBox(height: 16),
+          ],
+          if (active && _permissionGranted && !_serviceRunning) ...[
+            BlockingStoppedCard(
+              onFix: () => ref.read(blockingEngineProvider).openPermissionSettings(),
+            ),
             const SizedBox(height: 16),
           ],
           if (!_permissionGranted) ...[
