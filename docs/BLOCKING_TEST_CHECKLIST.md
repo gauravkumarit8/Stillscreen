@@ -37,6 +37,10 @@ and confirm the health check says **Blocking service: Running**.
 
 ## Stillscreen itself
 
+- [ ] While a session runs, Stillscreen is not in the recent apps list. It reappears after the session ends.
+- [ ] Open Stillscreen from its icon during a session. The timer is still running.
+- [ ] YouTube was running in the background. Open it from recent apps five times in a row. It blocks every time.
+
 - [ ] Lock Stillscreen in recent apps, then close other apps. Open the blocked app. It blocks.
 - [ ] Swipe Stillscreen away during a session. Reopen Stillscreen. A "Blocking has stopped" card appears.
 - [ ] After switching Accessibility off and on, blocking works again.

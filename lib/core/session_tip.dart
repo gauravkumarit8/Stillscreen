@@ -14,7 +14,10 @@ bool shouldShowSessionTip({
 const sessionTipText =
     'On your phone, swiping Stillscreen away from recent apps stops blocking.\n\n'
     'To keep blocking on:\n'
-    '1. Open recent apps, long-press the Stillscreen card, and tap the lock icon.\n'
-    '2. Do not swipe Stillscreen away while a session is running.\n'
-    '3. In Settings, allow Autostart and set battery to No restrictions.\n\n'
+    '1. While a session runs, Stillscreen hides from recent apps so it cannot be '
+    'swiped away by mistake. Open it from its icon.\n'
+    '2. Before you start, you can also open recent apps, long-press the '
+    'Stillscreen card, and tap the lock icon.\n'
+    '3. Do not use Clear all or a cleaner app during a session.\n'
+    '4. In Settings, allow Autostart and set battery to No restrictions.\n\n'
     'If blocking ever stops, Stillscreen will tell you on the home screen.';

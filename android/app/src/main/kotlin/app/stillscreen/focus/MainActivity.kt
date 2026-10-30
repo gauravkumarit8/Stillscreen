@@ -21,6 +21,32 @@ class MainActivity : FlutterActivity() {
     private val labelCache = ConcurrentHashMap<String, String>()
     private var pendingNotificationResult: MethodChannel.Result? = null
 
+    override fun onResume() {
+        super.onResume()
+        updateRecentsVisibility()
+    }
+
+    /**
+     * While a session runs, hide Stillscreen from the recent apps list, so it
+     * cannot be swiped away by mistake. Some phones (Xiaomi, for one) stop an
+     * app that is swiped away, and that switches blocking off. It comes back
+     * in the list when the session ends.
+     */
+    private fun updateRecentsVisibility() {
+        val hide = BlockStore.isSessionActive(this)
+        try {
+            val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            for (task in am.appTasks) {
+                val component = task.taskInfo.baseIntent?.component
+                if (component?.className == MainActivity::class.java.name) {
+                    task.setExcludeFromRecents(hide)
+                }
+            }
+        } catch (e: Exception) {
+            // Not available on this phone. Nothing else depends on it.
+        }
+    }
+
     override fun onDestroy() {
         appLoader.shutdown()
         super.onDestroy()
@@ -83,6 +109,7 @@ class MainActivity : FlutterActivity() {
                     "startSession" -> {
                         val durationMs = (call.arguments as Number).toLong()
                         BlockStore.startSession(this, durationMs)
+                        updateRecentsVisibility()
                         result.success(null)
                     }
 
@@ -242,7 +269,12 @@ class MainActivity : FlutterActivity() {
 
                     "lastActive" -> result.success(BlockStore.lastActive(this))
 
-                    "isServiceConnected" -> result.success(BlockerAccessibilityService.connected)
+                    "isServiceConnected" -> result.success(
+                        // A service that handled an app change a moment ago is
+                        // certainly running, even if Android's bookkeeping lags.
+                        BlockerAccessibilityService.connected ||
+                            System.currentTimeMillis() - BlockStore.lastActive(this) < 25_000L
+                    )
 
                     "blockDiagnostics" -> result.success(BlockStore.diagnostics(this))
 
@@ -268,6 +300,7 @@ class MainActivity : FlutterActivity() {
 
                     "stopSession" -> {
                         BlockStore.stopSession(this)
+                        updateRecentsVisibility()
                         result.success(null)
                     }
 

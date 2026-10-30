@@ -20,6 +20,9 @@ class BlockerAccessibilityService : AccessibilityService() {
     private var ownScreenAt = 0L
 
     private var lastBlockPkg: String? = null
+
+    /** The last app that was not Stillscreen itself. */
+    private var lastForeign: String? = null
     private var lastBlockAt = 0L
 
     companion object {
@@ -29,21 +32,23 @@ class BlockerAccessibilityService : AccessibilityService() {
          * phone has stopped the service in the background, so the app checks
          * this as well.
          */
+        /** The service instance Android has connected, or null if none. */
         @Volatile
-        var connected: Boolean = false
-            private set
+        private var instance: BlockerAccessibilityService? = null
+
+        val connected: Boolean get() = instance != null
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        connected = true
+        instance = this
         BlockStore.touchActive(this)
         Alerts.clearBlockingOff(this)
     }
 
     /** Blocking was switched off. Warn only if it matters right now. */
     override fun onUnbind(intent: Intent?): Boolean {
-        connected = false
+        if (instance === this) instance = null
         overlay.hide()
         pauseOverlay.hide()
         if (BlockStore.isSessionActive(this) || BlockStore.isWindDownActive(this)) {
@@ -53,7 +58,7 @@ class BlockerAccessibilityService : AccessibilityService() {
     }
 
     override fun onDestroy() {
-        connected = false
+        if (instance === this) instance = null
         handler.removeCallbacksAndMessages(null)
         overlay.hide()
         pauseOverlay.hide()
@@ -66,7 +71,7 @@ class BlockerAccessibilityService : AccessibilityService() {
 
         // Note that the service is alive, at most once a minute.
         val now = System.currentTimeMillis()
-        if (now - lastBeat > 60_000L) {
+        if (now - lastBeat > 10_000L) {
             lastBeat = now
             BlockStore.touchActive(this)
         }
@@ -95,6 +100,7 @@ class BlockerAccessibilityService : AccessibilityService() {
         // so the "other app in between" is not always seen.
         val repeat = pkg == lastPackage
         lastPackage = pkg
+        lastForeign = pkg
         if (!repeat) BlockStore.recordSeen(this, pkg)
 
         // Blocking wins over the mindful pause.
@@ -116,10 +122,14 @@ class BlockerAccessibilityService : AccessibilityService() {
             BlockStore.isSessionActive(this) || BlockStore.isWindDownActive(this)
 
         if (repeat) {
-            // Skip only if this very app was blocked a moment ago, which is
-            // the block screen's own window settling.
-            val justBlocked = pkg == lastBlockPkg && now - lastBlockAt < 3_000L
-            if (blockReason == null || justBlocked) {
+            // A repeat is normally ignored. But a blocked app that shows up
+            // again while no block screen is in front has come back on top of
+            // it (this happens when an app is resumed from the background), so
+            // it has to be blocked again. Only skip it if a block screen is up,
+            // or one was launched a split second ago.
+            val blockUiUp = BlockActivity.onScreen || overlay.isShowing
+            val justLaunched = pkg == lastBlockPkg && now - lastBlockAt < 400L
+            if (blockReason == null || blockUiUp || justLaunched) {
                 if (somethingActive) BlockStore.logEvent(this, pkg, "same app again, ignored")
                 return
             }
@@ -140,7 +150,14 @@ class BlockerAccessibilityService : AccessibilityService() {
             BlockStore.logEvent(this, pkg, "protected app, never blocked")
             return
         }
-        BlockStore.logEvent(this, pkg, if (blockReason != null) "blocking it" else "mindful pause")
+        BlockStore.logEvent(
+            this, pkg,
+            when {
+                blockReason == null -> "mindful pause"
+                repeat -> "blocking it again"
+                else -> "blocking it"
+            }
+        )
         if (blockReason != null) {
             lastBlockPkg = pkg
             lastBlockAt = now
@@ -168,47 +185,59 @@ class BlockerAccessibilityService : AccessibilityService() {
         BlockStore.recordAttempt(this, pkg, outcome)
 
         // A phone can create the screen and still leave it behind the app that
-        // is open (this happens when an app is resumed from the background), or
-        // refuse to open it at all. So after a moment, check that it is really
-        // in front. If it is not, cover the app with an overlay, which works
-        // on every brand. If even that is refused, send the person Home.
-        handler.postDelayed({
-            if (blockReason != null) {
-                if (BlockActivity.onScreen || overlay.isShowing) return@postDelayed
-                val shown = overlay.show(pkg, blockReason == BlockActivity.REASON_WIND_DOWN)
-                if (shown) {
-                    BlockStore.recordAttempt(
-                        this, pkg, "block screen was not in front, showed an overlay instead"
-                    )
-                } else {
-                    performGlobalAction(GLOBAL_ACTION_HOME)
-                    val label = try {
-                        packageManager.getApplicationLabel(
-                            packageManager.getApplicationInfo(pkg, 0)
-                        ).toString()
-                    } catch (e: Exception) {
-                        pkg
-                    }
-                    Toast.makeText(
-                        this, "$label is blocked during your focus session", Toast.LENGTH_SHORT
-                    ).show()
-                    BlockStore.recordAttempt(
-                        this, pkg, "block screen was not in front, sent Home instead"
-                    )
-                }
-            } else {
-                if (PauseActivity.onScreen || pauseOverlay.isShowing) return@postDelayed
-                val shown = pauseOverlay.show(pkg)
+        // is open, or let the app climb back on top a moment later (this
+        // happens when an app is resumed from the background), or refuse to
+        // open it at all. So check a few times that it is really in front, and
+        // cover the app with an overlay if it is not.
+        for (delay in longArrayOf(600L, 1500L, 3000L)) {
+            handler.postDelayed({ ensureScreenShown(pkg, blockReason) }, delay)
+        }
+    }
+
+    /**
+     * Makes sure a block (or pause) screen is in front of [pkg]. Does nothing
+     * if one already is, if the session is over, or if the person has moved on.
+     */
+    private fun ensureScreenShown(pkg: String, blockReason: String?) {
+        if (lastForeign != pkg) return
+        if (blockReason != null) {
+            if (BlockActivity.onScreen || overlay.isShowing) return
+            if (!BlockStore.isSessionActive(this) && !BlockStore.isWindDownActive(this)) return
+            val shown = overlay.show(pkg, blockReason == BlockActivity.REASON_WIND_DOWN)
+            if (shown) {
                 BlockStore.recordAttempt(
-                    this, pkg,
-                    if (shown) {
-                        "pause screen was not in front, showed an overlay instead"
-                    } else {
-                        "pause screen was not in front and no overlay could be shown"
-                    }
+                    this, pkg, "block screen was not in front, showed an overlay instead"
+                )
+            } else {
+                performGlobalAction(GLOBAL_ACTION_HOME)
+                val label = try {
+                    packageManager.getApplicationLabel(
+                        packageManager.getApplicationInfo(pkg, 0)
+                    ).toString()
+                } catch (e: Exception) {
+                    pkg
+                }
+                Toast.makeText(
+                    this, "$label is blocked during your focus session", Toast.LENGTH_SHORT
+                ).show()
+                BlockStore.recordAttempt(
+                    this, pkg, "block screen was not in front, sent Home instead"
                 )
             }
-        }, 600L)
+        } else {
+            if (PauseActivity.onScreen || pauseOverlay.isShowing) return
+            // After "Continue" the pause screen closes on purpose.
+            if (PauseStore.isInGrace(this, pkg)) return
+            val shown = pauseOverlay.show(pkg)
+            BlockStore.recordAttempt(
+                this, pkg,
+                if (shown) {
+                    "pause screen was not in front, showed an overlay instead"
+                } else {
+                    "pause screen was not in front and no overlay could be shown"
+                }
+            )
+        }
     }
 
     override fun onInterrupt() {}
