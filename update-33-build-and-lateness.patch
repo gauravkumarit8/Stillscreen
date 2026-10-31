@@ -1,0 +1,165 @@
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+index 2728a3c..57127a1 100644
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -62,7 +62,7 @@ jobs:
+ 
+       # ---------- debug APK (always) ----------
+       - name: Build debug APK
+-        run: bash scripts/retry_build.sh flutter build apk --debug
++        run: bash scripts/retry_build.sh flutter build apk --debug --dart-define=BUILD_NUMBER=${{ github.run_number }}
+ 
+       - uses: actions/upload-artifact@v4
+         with:
+@@ -131,7 +131,7 @@ jobs:
+         if: env.BUILD_AAB == 'true'
+         # Obfuscated, with the symbol files kept so crash traces from Android
+         # vitals can be read later (see the next upload step).
+-        run: bash scripts/retry_build.sh flutter build appbundle --release --obfuscate --split-debug-info=build/symbols
++        run: bash scripts/retry_build.sh flutter build appbundle --release --obfuscate --split-debug-info=build/symbols --dart-define=BUILD_NUMBER=${{ github.run_number }}
+ 
+       - name: Show who signed it, and refuse the debug key
+         if: env.BUILD_AAB == 'true'
+diff --git a/android/app/src/main/kotlin/app/stillscreen/focus/BlockerAccessibilityService.kt b/android/app/src/main/kotlin/app/stillscreen/focus/BlockerAccessibilityService.kt
+index 21ef51e..5d532ab 100644
+--- a/android/app/src/main/kotlin/app/stillscreen/focus/BlockerAccessibilityService.kt
++++ b/android/app/src/main/kotlin/app/stillscreen/focus/BlockerAccessibilityService.kt
+@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
+ import android.content.Intent
+ import android.os.Handler
+ import android.os.Looper
++import android.os.SystemClock
+ import android.widget.Toast
+ import android.view.accessibility.AccessibilityEvent
+ 
+@@ -71,6 +72,13 @@ class BlockerAccessibilityService : AccessibilityService() {
+ 
+         // Note that the service is alive, at most once a minute.
+         val now = System.currentTimeMillis()
++
++        // How long ago the app says this happened. A big number means the phone
++        // held the event back, for example while it had frozen Stillscreen to
++        // save battery. It is written into the activity log.
++        val lateMs = SystemClock.uptimeMillis() - event.eventTime
++        val late = if (lateMs > 500L) " (event ${lateMs} ms late)" else ""
++
+         if (now - lastBeat > 10_000L) {
+             lastBeat = now
+             BlockStore.touchActive(this)
+@@ -130,7 +138,7 @@ class BlockerAccessibilityService : AccessibilityService() {
+             val blockUiUp = BlockActivity.onScreen || overlay.isShowing
+             val justLaunched = pkg == lastBlockPkg && now - lastBlockAt < 400L
+             if (blockReason == null || blockUiUp || justLaunched) {
+-                if (somethingActive) BlockStore.logEvent(this, pkg, "same app again, ignored")
++                if (somethingActive) BlockStore.logEvent(this, pkg, "same app again, ignored$late")
+                 return
+             }
+         }
+@@ -142,20 +150,20 @@ class BlockerAccessibilityService : AccessibilityService() {
+                 } else {
+                     "not blocked"
+                 }
+-                BlockStore.logEvent(this, pkg, why)
++                BlockStore.logEvent(this, pkg, "$why$late")
+             }
+             return
+         }
+         if (pkg in BlockStore.protectedPackages(this)) {
+-            BlockStore.logEvent(this, pkg, "protected app, never blocked")
++            BlockStore.logEvent(this, pkg, "protected app, never blocked$late")
+             return
+         }
+         BlockStore.logEvent(
+             this, pkg,
+             when {
+-                blockReason == null -> "mindful pause"
+-                repeat -> "blocking it again"
+-                else -> "blocking it"
++                blockReason == null -> "mindful pause$late"
++                repeat -> "blocking it again$late"
++                else -> "blocking it$late"
+             }
+         )
+         if (blockReason != null) {
+diff --git a/lib/core/app_config.dart b/lib/core/app_config.dart
+index d4d596f..c8c4837 100644
+--- a/lib/core/app_config.dart
++++ b/lib/core/app_config.dart
+@@ -15,3 +15,8 @@ const feedbackEmail = 'gaurav954624@gmail.com';
+ /// Opened from Settings. Keep it identical to the link in Play Console.
+ const privacyPolicyUrl =
+     'https://gauravkumarit8.github.io/stillscreen/privacy-policy.html';
++
++/// The GitHub build number, set when the app is built by CI. It shows in the
++/// health check, so a screenshot says exactly which build it came from. A build
++/// made by hand reads "local".
++const buildNumber = String.fromEnvironment('BUILD_NUMBER', defaultValue: 'local');
+diff --git a/lib/features/health/health_screen.dart b/lib/features/health/health_screen.dart
+index f17c736..c49edcd 100644
+--- a/lib/features/health/health_screen.dart
++++ b/lib/features/health/health_screen.dart
+@@ -32,6 +32,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
+   BlockDiagnostics _diag = const BlockDiagnostics();
+   List<ProcessExit> _exits = const [];
+   String _maker = '';
++  String _build = '';
+ 
+   @override
+   void initState() {
+@@ -60,6 +61,13 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
+     final notifications = await ref.read(reminderServiceProvider).notificationsAllowed();
+     final last = await engine.lastActiveMillis();
+     final diag = await engine.blockDiagnostics();
++    var build = '';
++    try {
++      final info = await ref.read(appInfoProvider.future);
++      build = '${info.versionName} (${info.versionCode}), build $buildNumber';
++    } catch (_) {
++      build = 'build $buildNumber';
++    }
+     final exits = await engine.recentExits();
+     final maker = await ref.read(powerSettingsProvider).manufacturer();
+     if (!mounted) return;
+@@ -72,6 +80,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
+       _diag = diag;
+       _exits = exits;
+       _maker = maker;
++      _build = build;
+     });
+   }
+ 
+@@ -96,6 +105,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
+         'Last app seen: ${describeSeen(_diag, DateTime.now())}\n'
+         'Last block attempt: ${describeAttempt(_diag, DateTime.now())}\n'
+         'Blocking state: ${describeState(_diag)}\n'
++        'App: $_build\n'
+         'Phone: $_maker\n'
+         'Recent activity:\n${describeLog(_diag)}\n'
+         'Why the app last stopped: '
+@@ -163,6 +173,12 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
+             onAction: ref.read(blockingEngineProvider).openPermissionSettings,
+           ),
+           const SizedBox(height: 12),
++          _CheckRow(
++            title: 'App build',
++            ok: null,
++            detail: _build.isEmpty ? 'Reading...' : _build,
++          ),
++          const SizedBox(height: 12),
+           _CheckRow(
+             title: 'Blocking state',
+             ok: null,
+diff --git a/test/build_number_test.dart b/test/build_number_test.dart
+new file mode 100644
+index 0000000..973c1d0
+--- /dev/null
++++ b/test/build_number_test.dart
+@@ -0,0 +1,8 @@
++import 'package:flutter_test/flutter_test.dart';
++import 'package:focus/core/app_config.dart';
++
++void main() {
++  test('a build made by hand reads local', () {
++    expect(buildNumber, 'local');
++  });
++}

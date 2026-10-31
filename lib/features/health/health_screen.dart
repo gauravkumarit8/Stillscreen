@@ -32,6 +32,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
   BlockDiagnostics _diag = const BlockDiagnostics();
   List<ProcessExit> _exits = const [];
   String _maker = '';
+  String _build = '';
 
   @override
   void initState() {
@@ -60,6 +61,13 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
     final notifications = await ref.read(reminderServiceProvider).notificationsAllowed();
     final last = await engine.lastActiveMillis();
     final diag = await engine.blockDiagnostics();
+    var build = '';
+    try {
+      final info = await ref.read(appInfoProvider.future);
+      build = '${info.versionName} (${info.versionCode}), build $buildNumber';
+    } catch (_) {
+      build = 'build $buildNumber';
+    }
     final exits = await engine.recentExits();
     final maker = await ref.read(powerSettingsProvider).manufacturer();
     if (!mounted) return;
@@ -72,6 +80,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
       _diag = diag;
       _exits = exits;
       _maker = maker;
+      _build = build;
     });
   }
 
@@ -96,6 +105,7 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
         'Last app seen: ${describeSeen(_diag, DateTime.now())}\n'
         'Last block attempt: ${describeAttempt(_diag, DateTime.now())}\n'
         'Blocking state: ${describeState(_diag)}\n'
+        'App: $_build\n'
         'Phone: $_maker\n'
         'Recent activity:\n${describeLog(_diag)}\n'
         'Why the app last stopped: '
@@ -161,6 +171,12 @@ class _HealthScreenState extends ConsumerState<HealthScreen>
             actionLabel:
                 _serviceRunning == false ? 'Open Accessibility settings' : null,
             onAction: ref.read(blockingEngineProvider).openPermissionSettings,
+          ),
+          const SizedBox(height: 12),
+          _CheckRow(
+            title: 'App build',
+            ok: null,
+            detail: _build.isEmpty ? 'Reading...' : _build,
           ),
           const SizedBox(height: 12),
           _CheckRow(

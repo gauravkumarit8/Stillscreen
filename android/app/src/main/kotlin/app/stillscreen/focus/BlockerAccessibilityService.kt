@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.widget.Toast
 import android.view.accessibility.AccessibilityEvent
 
@@ -71,6 +72,13 @@ class BlockerAccessibilityService : AccessibilityService() {
 
         // Note that the service is alive, at most once a minute.
         val now = System.currentTimeMillis()
+
+        // How long ago the app says this happened. A big number means the phone
+        // held the event back, for example while it had frozen Stillscreen to
+        // save battery. It is written into the activity log.
+        val lateMs = SystemClock.uptimeMillis() - event.eventTime
+        val late = if (lateMs > 500L) " (event ${lateMs} ms late)" else ""
+
         if (now - lastBeat > 10_000L) {
             lastBeat = now
             BlockStore.touchActive(this)
@@ -130,7 +138,7 @@ class BlockerAccessibilityService : AccessibilityService() {
             val blockUiUp = BlockActivity.onScreen || overlay.isShowing
             val justLaunched = pkg == lastBlockPkg && now - lastBlockAt < 400L
             if (blockReason == null || blockUiUp || justLaunched) {
-                if (somethingActive) BlockStore.logEvent(this, pkg, "same app again, ignored")
+                if (somethingActive) BlockStore.logEvent(this, pkg, "same app again, ignored$late")
                 return
             }
         }
@@ -142,20 +150,20 @@ class BlockerAccessibilityService : AccessibilityService() {
                 } else {
                     "not blocked"
                 }
-                BlockStore.logEvent(this, pkg, why)
+                BlockStore.logEvent(this, pkg, "$why$late")
             }
             return
         }
         if (pkg in BlockStore.protectedPackages(this)) {
-            BlockStore.logEvent(this, pkg, "protected app, never blocked")
+            BlockStore.logEvent(this, pkg, "protected app, never blocked$late")
             return
         }
         BlockStore.logEvent(
             this, pkg,
             when {
-                blockReason == null -> "mindful pause"
-                repeat -> "blocking it again"
-                else -> "blocking it"
+                blockReason == null -> "mindful pause$late"
+                repeat -> "blocking it again$late"
+                else -> "blocking it$late"
             }
         )
         if (blockReason != null) {

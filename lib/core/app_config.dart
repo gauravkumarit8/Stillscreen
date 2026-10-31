@@ -15,3 +15,8 @@ const feedbackEmail = 'gaurav954624@gmail.com';
 /// Opened from Settings. Keep it identical to the link in Play Console.
 const privacyPolicyUrl =
     'https://gauravkumarit8.github.io/stillscreen/privacy-policy.html';
+
+/// The GitHub build number, set when the app is built by CI. It shows in the
+/// health check, so a screenshot says exactly which build it came from. A build
+/// made by hand reads "local".
+const buildNumber = String.fromEnvironment('BUILD_NUMBER', defaultValue: 'local');
