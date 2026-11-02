@@ -16,18 +16,21 @@ import android.widget.TextView
 /** Block screen for focus sessions and wind-down. Built in code, no layout files. */
 class BlockActivity : Activity() {
 
+    private var windDown = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val windDown = intent.getStringExtra(EXTRA_REASON) == REASON_WIND_DOWN
+        windDown = intent.getStringExtra(EXTRA_REASON) == REASON_WIND_DOWN
+        val appName = BlockInfo.appName(this, intent.getStringExtra(EXTRA_PACKAGE))
         val density = resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
 
         val message = TextView(this).apply {
             text = if (windDown) {
-                "Time to switch off.\nThis app is paused until your work hours start."
+                "Time to switch off.\n$appName is paused until your work hours start."
             } else {
-                "Take a breath.\nThis app is blocked during your focus session."
+                "Take a breath.\n$appName is blocked during your focus session."
             }
             textSize = 22f
             gravity = Gravity.CENTER
@@ -62,7 +65,9 @@ class BlockActivity : Activity() {
             setBackgroundColor(0xFF14323A.toInt())
             setPadding(dp(24), dp(24), dp(24), dp(24))
             addView(message)
+            BlockInfo.topViews(this@BlockActivity, windDown).forEach { addView(it) }
             if (reason.isNotEmpty()) addView(reasonView)
+            BlockInfo.footerViews(this@BlockActivity, windDown).forEach { addView(it) }
             addView(
                 button,
                 LinearLayout.LayoutParams(
@@ -97,6 +102,7 @@ class BlockActivity : Activity() {
     override fun onBackPressed() = goHome()
 
     private fun goHome() {
+        if (!windDown) BlockStore.recordFocusChosen(this)
         startActivity(
             Intent(Intent.ACTION_MAIN)
                 .addCategory(Intent.CATEGORY_HOME)

@@ -47,6 +47,10 @@ abstract class BlockingEngine {
   /// The short note shown on the pause and block screens.
   Future<void> setReason(String reason);
 
+  /// Sends the exam to the block screens so they can count down to it. With no
+  /// arguments it clears the exam.
+  Future<void> setExam({String? name, int? year, int? month, int? day});
+
   /// When the blocking service last handled a window change, or 0 if never.
   Future<int> lastActiveMillis();
 
@@ -154,6 +158,16 @@ class AndroidBlockingEngine implements BlockingEngine {
   }
 
   @override
+  Future<void> setExam({String? name, int? year, int? month, int? day}) async {
+    await _channel.invokeMethod<void>('setExam', {
+      'name': name,
+      'y': year,
+      'm': month,
+      'd': day,
+    });
+  }
+
+  @override
   Future<int> lastActiveMillis() async =>
       ((await _channel.invokeMethod<num>('lastActive')) ?? 0).toInt();
 
@@ -235,6 +249,9 @@ class PreviewBlockingEngine implements BlockingEngine {
 
   @override
   Future<void> setReason(String reason) async {}
+
+  @override
+  Future<void> setExam({String? name, int? year, int? month, int? day}) async {}
 
   @override
   Future<int> lastActiveMillis() async => DateTime.now().millisecondsSinceEpoch;

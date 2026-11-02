@@ -19,6 +19,11 @@ object BlockStore {
     private const val KEY_TRY_AT = "try_at"
     private const val KEY_TRY_RESULT = "try_result"
     private const val KEY_EVENT_LOG = "event_log"
+    private const val KEY_EXAM_NAME = "exam_name"
+    private const val KEY_EXAM_Y = "exam_y"
+    private const val KEY_EXAM_M = "exam_m"
+    private const val KEY_EXAM_D = "exam_d"
+    private const val CHOSEN_PREFIX = "chosen_"
     private const val KEY_REASON = "reason"
     private const val LEDGER_PREFIX = "mins_"
     private const val KEY_WD_ENABLED = "wd_enabled"
@@ -215,6 +220,68 @@ object BlockStore {
     }
 
     fun reason(ctx: Context): String = prefs(ctx).getString(KEY_REASON, "") ?: ""
+
+    /** "12 min focused · 13 min to go", or null when no session is running. */
+    fun sessionProgressLine(ctx: Context): String? {
+        val p = prefs(ctx)
+        val start = p.getLong(KEY_SESSION_START, 0L)
+        val end = p.getLong(KEY_SESSION_END, 0L)
+        val now = System.currentTimeMillis()
+        if (start == 0L || end <= now) return null
+        val done = ((now - start) / 60_000L).toInt().coerceAtLeast(0)
+        val left = ((end - now + 59_999L) / 60_000L).toInt().coerceAtLeast(1)
+        return "$done min focused \u00B7 $left min to go"
+    }
+
+    /** Remember the exam, so the block screens can count down to it. */
+    fun setExam(ctx: Context, name: String?, year: Int?, month: Int?, day: Int?) {
+        val e = prefs(ctx).edit()
+        if (year == null || month == null || day == null) {
+            e.remove(KEY_EXAM_NAME).remove(KEY_EXAM_Y).remove(KEY_EXAM_M).remove(KEY_EXAM_D)
+        } else {
+            e.putString(KEY_EXAM_NAME, (name ?: "").trim().take(24))
+                .putInt(KEY_EXAM_Y, year).putInt(KEY_EXAM_M, month).putInt(KEY_EXAM_D, day)
+        }
+        e.apply()
+    }
+
+    /** "NEET in 42 days", or null if no exam is set or it has passed. */
+    fun examLine(ctx: Context): String? {
+        val p = prefs(ctx)
+        val y = p.getInt(KEY_EXAM_Y, 0)
+        if (y == 0) return null
+        val m = p.getInt(KEY_EXAM_M, 1)
+        val d = p.getInt(KEY_EXAM_D, 1)
+        val utc = java.util.TimeZone.getTimeZone("UTC")
+        val exam = Calendar.getInstance(utc).apply { clear(); set(y, m - 1, d) }.timeInMillis
+        val now = Calendar.getInstance()
+        val today = Calendar.getInstance(utc).apply {
+            clear()
+            set(now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH))
+        }.timeInMillis
+        val days = ((exam - today) / 86_400_000L).toInt()
+        if (days < 0) return null
+        val label = (p.getString(KEY_EXAM_NAME, "") ?: "").ifEmpty { "Your exam" }
+        return when (days) {
+            0 -> "$label is today. You have got this."
+            1 -> "$label is tomorrow."
+            else -> "$label in $days days"
+        }
+    }
+
+    /** The person tapped "Back to focus". Counts once per tap, per day. */
+    fun recordFocusChosen(ctx: Context) {
+        val p = prefs(ctx)
+        val today = CHOSEN_PREFIX + Reminder.dayKey(Calendar.getInstance())
+        val e = p.edit()
+        for (key in p.all.keys) {
+            if (key.startsWith(CHOSEN_PREFIX) && key != today) e.remove(key)
+        }
+        e.putInt(today, p.getInt(today, 0) + 1).apply()
+    }
+
+    fun focusChosenToday(ctx: Context): Int =
+        prefs(ctx).getInt(CHOSEN_PREFIX + Reminder.dayKey(Calendar.getInstance()), 0)
 
     fun isSessionActive(ctx: Context): Boolean =
         System.currentTimeMillis() < prefs(ctx).getLong(KEY_SESSION_END, 0L)

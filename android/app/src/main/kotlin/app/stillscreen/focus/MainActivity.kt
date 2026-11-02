@@ -262,6 +262,18 @@ class MainActivity : FlutterActivity() {
                         BlockStore.extendSession(this, (call.arguments as Number).toLong() * 60_000L)
                     )
 
+                    "setExam" -> {
+                        val a = call.arguments as? Map<*, *>
+                        BlockStore.setExam(
+                            this,
+                            a?.get("name") as? String,
+                            (a?.get("y") as? Number)?.toInt(),
+                            (a?.get("m") as? Number)?.toInt(),
+                            (a?.get("d") as? Number)?.toInt()
+                        )
+                        result.success(null)
+                    }
+
                     "setReason" -> {
                         BlockStore.setReason(this, call.arguments as? String ?: "")
                         result.success(null)

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../core/exam.dart';
 import '../../core/power/power_settings.dart';
 import '../../core/session_tip.dart';
 import '../../core/levels.dart';
@@ -63,6 +64,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         normalizeSessionMinutes(ref.read(sharedPrefsProvider).getInt(_lengthKey));
     WidgetsBinding.instance.addObserver(this);
     _refreshPermission();
+    // Make sure the block screens know about an exam saved before this version.
+    Future.microtask(() => ref.read(examProvider.notifier).syncToBlockScreen());
     // While a session runs, keep an eye on whether the phone has stopped
     // the blocking service (for example after Stillscreen is swiped away).
     _watch = Timer.periodic(const Duration(seconds: 5), (_) {

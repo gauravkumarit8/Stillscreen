@@ -35,6 +35,15 @@ and confirm the health check says **Blocking service: Running**.
 - [ ] Extend the session with +5. Blocking continues past the old end time.
 - [ ] Strict mode on: the session cannot be ended early.
 
+## What the block screen shows
+
+- [ ] It names the blocked app ("YouTube is blocked during your focus session").
+- [ ] It shows how long you have focused and how long is left.
+- [ ] With an exam set, it shows the countdown ("NEET in 42 days"). With none set, no exam line.
+- [ ] Tap "Back to focus" a few times. "You have chosen focus N times today." grows by one each time.
+- [ ] The same text appears on the overlay version (see "Last block attempt").
+- [ ] A wind-down block shows no session progress and no counter.
+
 ## Stillscreen itself
 
 - [ ] While a session runs, Stillscreen is not in the recent apps list. It reappears after the session ends.

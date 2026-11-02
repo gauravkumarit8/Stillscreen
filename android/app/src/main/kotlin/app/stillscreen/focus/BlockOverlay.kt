@@ -23,6 +23,7 @@ import android.widget.TextView
 class BlockOverlay(private val service: AccessibilityService) {
 
     private var view: View? = null
+    private var currentWindDown = false
 
     /** The app this overlay is covering, or null when nothing is shown. */
     var blockedPackage: String? = null
@@ -41,7 +42,8 @@ class BlockOverlay(private val service: AccessibilityService) {
         }
         return try {
             val wm = service.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-            val content = build(windDown)
+            currentWindDown = windDown
+            val content = build(pkg, windDown)
             val params = WindowManager.LayoutParams(
                 WindowManager.LayoutParams.MATCH_PARENT,
                 WindowManager.LayoutParams.MATCH_PARENT,
@@ -75,20 +77,22 @@ class BlockOverlay(private val service: AccessibilityService) {
     }
 
     private fun leave() {
+        if (!currentWindDown) BlockStore.recordFocusChosen(service)
         hide()
         service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
     }
 
     /** Same words and colours as BlockActivity, so the two look alike. */
-    private fun build(windDown: Boolean): View {
+    private fun build(pkg: String, windDown: Boolean): View {
         val density = service.resources.displayMetrics.density
         fun dp(v: Int) = (v * density).toInt()
+        val appName = BlockInfo.appName(service, pkg)
 
         val message = TextView(service).apply {
             text = if (windDown) {
-                "Time to switch off.\nThis app is paused until your work hours start."
+                "Time to switch off.\n$appName is paused until your work hours start."
             } else {
-                "Take a breath.\nThis app is blocked during your focus session."
+                "Take a breath.\n$appName is blocked during your focus session."
             }
             textSize = 22f
             gravity = Gravity.CENTER
@@ -136,7 +140,9 @@ class BlockOverlay(private val service: AccessibilityService) {
             setBackgroundColor(0xFF14323A.toInt())
             setPadding(dp(24), dp(24), dp(24), dp(24))
             addView(message)
+            BlockInfo.topViews(service, windDown).forEach { addView(it) }
             if (reason.isNotEmpty()) addView(reasonView)
+            BlockInfo.footerViews(service, windDown).forEach { addView(it) }
             addView(
                 button,
                 LinearLayout.LayoutParams(

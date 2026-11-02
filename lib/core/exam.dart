@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'blocking/blocking_engine.dart';
 import 'prefs.dart';
 
 class Exam {
@@ -37,6 +38,7 @@ class ExamNotifier extends Notifier<Exam?> {
     final prefs = ref.read(sharedPrefsProvider);
     await prefs.setString(_nameKey, exam.name);
     await prefs.setInt(_dateKey, exam.date.millisecondsSinceEpoch);
+    await syncToBlockScreen();
   }
 
   Future<void> clear() async {
@@ -44,6 +46,28 @@ class ExamNotifier extends Notifier<Exam?> {
     final prefs = ref.read(sharedPrefsProvider);
     await prefs.remove(_nameKey);
     await prefs.remove(_dateKey);
+    await syncToBlockScreen();
+  }
+
+  /// Copies the exam to the side that draws the block screens.
+  Future<void> syncToBlockScreen() async {
+    final exam = state;
+    try {
+      final engine = ref.read(blockingEngineProvider);
+      if (exam == null) {
+        await engine.setExam();
+      } else {
+        await engine.setExam(
+          name: exam.name,
+          year: exam.date.year,
+          month: exam.date.month,
+          day: exam.date.day,
+        );
+      }
+    } catch (_) {
+      // The block screens just will not show the countdown. Saving the exam
+      // itself must never fail because of this.
+    }
   }
 }
 
