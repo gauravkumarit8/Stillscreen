@@ -65,6 +65,7 @@ class BlockActivity : Activity() {
             setBackgroundColor(0xFF14323A.toInt())
             setPadding(dp(24), dp(24), dp(24), dp(24))
             addView(message)
+            BlockInfo.breathingViews(this@BlockActivity).forEach { addView(it) }
             BlockInfo.topViews(this@BlockActivity, windDown).forEach { addView(it) }
             if (reason.isNotEmpty()) addView(reasonView)
             BlockInfo.footerViews(this@BlockActivity, windDown).forEach { addView(it) }

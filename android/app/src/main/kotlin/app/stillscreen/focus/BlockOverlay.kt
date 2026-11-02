@@ -140,6 +140,7 @@ class BlockOverlay(private val service: AccessibilityService) {
             setBackgroundColor(0xFF14323A.toInt())
             setPadding(dp(24), dp(24), dp(24), dp(24))
             addView(message)
+            BlockInfo.breathingViews(service).forEach { addView(it) }
             BlockInfo.topViews(service, windDown).forEach { addView(it) }
             if (reason.isNotEmpty()) addView(reasonView)
             BlockInfo.footerViews(service, windDown).forEach { addView(it) }

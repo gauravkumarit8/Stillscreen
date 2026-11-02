@@ -51,6 +51,13 @@ abstract class BlockingEngine {
   /// arguments it clears the exam.
   Future<void> setExam({String? name, int? year, int? month, int? day});
 
+  /// Sends the streak to the block screens. Done when a session starts.
+  Future<void> setStreak({
+    required int days,
+    required bool goalDone,
+    required int minutesToGoal,
+  });
+
   /// When the blocking service last handled a window change, or 0 if never.
   Future<int> lastActiveMillis();
 
@@ -158,6 +165,19 @@ class AndroidBlockingEngine implements BlockingEngine {
   }
 
   @override
+  Future<void> setStreak({
+    required int days,
+    required bool goalDone,
+    required int minutesToGoal,
+  }) async {
+    await _channel.invokeMethod<void>('setStreak', {
+      'days': days,
+      'goalDone': goalDone,
+      'minutesToGoal': minutesToGoal,
+    });
+  }
+
+  @override
   Future<void> setExam({String? name, int? year, int? month, int? day}) async {
     await _channel.invokeMethod<void>('setExam', {
       'name': name,
@@ -249,6 +269,13 @@ class PreviewBlockingEngine implements BlockingEngine {
 
   @override
   Future<void> setReason(String reason) async {}
+
+  @override
+  Future<void> setStreak({
+    required int days,
+    required bool goalDone,
+    required int minutesToGoal,
+  }) async {}
 
   @override
   Future<void> setExam({String? name, int? year, int? month, int? day}) async {}

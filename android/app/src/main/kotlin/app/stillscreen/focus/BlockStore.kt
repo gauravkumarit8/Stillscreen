@@ -24,6 +24,9 @@ object BlockStore {
     private const val KEY_EXAM_M = "exam_m"
     private const val KEY_EXAM_D = "exam_d"
     private const val CHOSEN_PREFIX = "chosen_"
+    private const val KEY_STREAK_DAYS = "streak_days"
+    private const val KEY_STREAK_DONE = "streak_goal_done"
+    private const val KEY_STREAK_TO_GO = "streak_minutes_to_goal"
     private const val KEY_REASON = "reason"
     private const val LEDGER_PREFIX = "mins_"
     private const val KEY_WD_ENABLED = "wd_enabled"
@@ -243,6 +246,38 @@ object BlockStore {
                 .putInt(KEY_EXAM_Y, year).putInt(KEY_EXAM_M, month).putInt(KEY_EXAM_D, day)
         }
         e.apply()
+    }
+
+    /** The app sends its streak when a session starts, so it is fresh on the block screen. */
+    fun setStreak(ctx: Context, days: Int, goalDone: Boolean, minutesToGoal: Int) {
+        prefs(ctx).edit()
+            .putInt(KEY_STREAK_DAYS, days.coerceAtLeast(0))
+            .putBoolean(KEY_STREAK_DONE, goalDone)
+            .putInt(KEY_STREAK_TO_GO, minutesToGoal.coerceAtLeast(0))
+            .apply()
+    }
+
+    /**
+     * What the streak means for this session, or null if there is nothing
+     * useful to say. A finished session is what grows or keeps a streak.
+     */
+    fun streakLine(ctx: Context): String? {
+        val p = prefs(ctx)
+        if (!p.contains(KEY_STREAK_DAYS)) return null
+        val days = p.getInt(KEY_STREAK_DAYS, 0)
+        val goalDone = p.getBoolean(KEY_STREAK_DONE, false)
+        val toGo = p.getInt(KEY_STREAK_TO_GO, 0)
+        val start = p.getLong(KEY_SESSION_START, 0L)
+        val end = p.getLong(KEY_SESSION_END, 0L)
+        val sessionMinutes = if (start != 0L && end > start) ((end - start) / 60_000L).toInt() else 0
+        return when {
+            goalDone && days > 0 -> "$days day streak. Today's goal is done."
+            goalDone -> null
+            days > 0 && sessionMinutes >= toGo -> "Finish this session to keep your $days day streak."
+            days > 0 -> "$days day streak. $toGo more min today keeps it going."
+            sessionMinutes >= toGo -> "Finish this session to start a streak."
+            else -> null
+        }
     }
 
     /** "NEET in 42 days", or null if no exam is set or it has passed. */

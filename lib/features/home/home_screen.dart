@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../core/streak_sync.dart';
 import '../../core/exam.dart';
 import '../../core/power/power_settings.dart';
 import '../../core/session_tip.dart';
@@ -314,6 +315,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final now = DateTime.now();
 
     await engine.setBlockedApps(ref.read(blockedAppsProvider));
+    // Tell the block screen where the streak stands, so it can say so.
+    try {
+      final snap = streakSnapshot(
+        FocusStats(
+          ref.read(sessionLogProvider),
+          goals: ref.read(goalHistoryProvider),
+        ),
+      );
+      await engine.setStreak(
+        days: snap.days,
+        goalDone: snap.goalDone,
+        minutesToGoal: snap.minutesToGoal,
+      );
+    } catch (_) {
+      // The block screen just will not mention the streak.
+    }
     await engine.startSession(duration);
     await prefs.setInt(sessionStartKey, now.millisecondsSinceEpoch);
     await prefs.setInt(sessionEndKey, now.add(duration).millisecondsSinceEpoch);

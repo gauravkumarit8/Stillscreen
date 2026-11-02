@@ -43,6 +43,13 @@ and confirm the health check says **Blocking service: Running**.
 - [ ] Tap "Back to focus" a few times. "You have chosen focus N times today." grows by one each time.
 - [ ] The same text appears on the overlay version (see "Last block attempt").
 - [ ] A wind-down block shows no session progress and no counter.
+- [ ] A breathing circle grows for about 4 seconds ("Breathe in") and shrinks for about 6 ("Breathe out"). The label changes with it.
+- [ ] The circle stops when you leave the block screen (no battery use in the background).
+- [ ] On a short screen (under about 640 dp tall) the circle is left out and nothing overflows.
+- [ ] With animations turned off in Developer options, the circle stays still and nothing crashes.
+- [ ] With a streak, the screen says "Finish this session to keep your N day streak." or "N day streak. Today's goal is done."
+- [ ] With no streak and a long enough session, it says "Finish this session to start a streak."
+- [ ] Start a session after a long break. The streak line reflects the break (the streak resets after a missed full day).
 
 ## Stillscreen itself
 

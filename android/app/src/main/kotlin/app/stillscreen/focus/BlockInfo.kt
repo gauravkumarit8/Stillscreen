@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Typeface
 import android.view.Gravity
 import android.view.View
+import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
@@ -17,7 +18,6 @@ object BlockInfo {
     private val MUTED = 0x99FFFFFF.toInt()
 
     private val tips = listOf(
-        "Breathe in for four, out for six. Do it three times.",
         "An urge fades in about a minute if you do not feed it.",
         "Do only the next small step of your task.",
         "Stand up, drink some water, then start again.",
@@ -40,7 +40,7 @@ object BlockInfo {
     /** A different tip each minute. */
     fun tip(): String = tips[((System.currentTimeMillis() / 60_000L) % tips.size).toInt()]
 
-    private fun line(ctx: Context, text: String, size: Float, color: Int, italic: Boolean = false): View {
+    private fun line(ctx: Context, text: String, size: Float, color: Int, italic: Boolean = false): TextView {
         val density = ctx.resources.displayMetrics.density
         return TextView(ctx).apply {
             this.text = text
@@ -52,11 +52,34 @@ object BlockInfo {
         }
     }
 
-    /** Shown just under the main message: how the session is going, and the exam. */
+    /**
+     * A breathing guide under the main message. It is left out on short
+     * screens, where there is no room for it.
+     */
+    fun breathingViews(ctx: Context): List<View> {
+        if (ctx.resources.configuration.screenHeightDp < 640) return emptyList()
+        val density = ctx.resources.displayMetrics.density
+        val label = line(ctx, "Breathe in", 16f, TEAL)
+        val circle = BreathingView(ctx).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                (120 * density).toInt(),
+                (120 * density).toInt()
+            ).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = (8 * density).toInt()
+            }
+            contentDescription = "Breathing guide"
+            onPhase = { label.text = it }
+        }
+        return listOf(circle, label)
+    }
+
+    /** Shown just under the main message: how the session is going, the streak and the exam. */
     fun topViews(ctx: Context, windDown: Boolean): List<View> {
         val views = mutableListOf<View>()
         if (!windDown) {
             BlockStore.sessionProgressLine(ctx)?.let { views += line(ctx, it, 16f, TEAL) }
+            BlockStore.streakLine(ctx)?.let { views += line(ctx, it, 15f, WHITE) }
         }
         BlockStore.examLine(ctx)?.let { views += line(ctx, it, 16f, WHITE) }
         return views

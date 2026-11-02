@@ -262,6 +262,17 @@ class MainActivity : FlutterActivity() {
                         BlockStore.extendSession(this, (call.arguments as Number).toLong() * 60_000L)
                     )
 
+                    "setStreak" -> {
+                        val a = call.arguments as? Map<*, *>
+                        BlockStore.setStreak(
+                            this,
+                            (a?.get("days") as? Number)?.toInt() ?: 0,
+                            a?.get("goalDone") as? Boolean ?: false,
+                            (a?.get("minutesToGoal") as? Number)?.toInt() ?: 0
+                        )
+                        result.success(null)
+                    }
+
                     "setExam" -> {
                         val a = call.arguments as? Map<*, *>
                         BlockStore.setExam(
