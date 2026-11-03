@@ -308,11 +308,36 @@ object BlockStore {
     fun recordFocusChosen(ctx: Context) {
         val p = prefs(ctx)
         val today = CHOSEN_PREFIX + Reminder.dayKey(Calendar.getInstance())
+        // Keep the last two weeks so Stats can show a weekly total.
+        val keep = (0 until 14).map { daysAgo ->
+            CHOSEN_PREFIX + Reminder.dayKey(
+                Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, -daysAgo) }
+            )
+        }.toSet()
         val e = p.edit()
         for (key in p.all.keys) {
-            if (key.startsWith(CHOSEN_PREFIX) && key != today) e.remove(key)
+            if (key.startsWith(CHOSEN_PREFIX) && key !in keep) e.remove(key)
         }
         e.putInt(today, p.getInt(today, 0) + 1).apply()
+    }
+
+    /** Days in the last two weeks on which focus was chosen, with the count. */
+    fun focusChosenHistory(ctx: Context): List<Map<String, Int>> {
+        val p = prefs(ctx)
+        val out = mutableListOf<Map<String, Int>>()
+        for (daysAgo in 0 until 14) {
+            val cal = Calendar.getInstance().apply { add(Calendar.DAY_OF_MONTH, -daysAgo) }
+            val n = p.getInt(CHOSEN_PREFIX + Reminder.dayKey(cal), 0)
+            if (n > 0) {
+                out += mapOf(
+                    "y" to cal.get(Calendar.YEAR),
+                    "m" to cal.get(Calendar.MONTH) + 1,
+                    "d" to cal.get(Calendar.DAY_OF_MONTH),
+                    "n" to n
+                )
+            }
+        }
+        return out
     }
 
     fun focusChosenToday(ctx: Context): Int =

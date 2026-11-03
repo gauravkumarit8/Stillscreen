@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../core/focus_choices.dart';
+import '../../core/focus_choices_provider.dart';
 import '../../core/achievements.dart';
 import '../../core/goal.dart';
 import '../../core/insights.dart';
@@ -148,7 +150,13 @@ class StatsScreen extends ConsumerWidget {
               ? 'Goal reached. ${stats.todayMinutes} minutes focused today.'
               : '${stats.todayMinutes} of $goal minutes to keep your streak'),
           const SizedBox(height: 28),
-          RecapCard(recap: weeklyRecap(stats)),
+          RecapCard(
+            recap: weeklyRecap(stats),
+            urgesResisted: ref.watch(focusChosenProvider).maybeWhen(
+                  data: (choices) => chosenInLastDays(choices, DateTime.now(), 7),
+                  orElse: () => 0,
+                ),
+          ),
           const SizedBox(height: 16),
           if (insights.hasEnoughData) ...[
             InsightsCard(insights: insights),

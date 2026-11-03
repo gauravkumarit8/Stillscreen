@@ -132,9 +132,12 @@ class LevelCard extends StatelessWidget {
 
 /// This week against last week.
 class RecapCard extends StatelessWidget {
-  const RecapCard({super.key, required this.recap});
+  const RecapCard({super.key, required this.recap, this.urgesResisted = 0});
 
   final WeeklyRecap recap;
+
+  /// Times focus was chosen on a block screen in the last seven days.
+  final int urgesResisted;
 
   @override
   Widget build(BuildContext context) {
@@ -168,6 +171,15 @@ class RecapCard extends StatelessWidget {
                       : '${recap.sessions} sessions',
                 if (bestDay != null) bestDay,
               ].join('  \u00B7  '),
+              style: text.bodySmall,
+            ),
+          ],
+          if (urgesResisted > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              urgesResisted == 1
+                  ? 'You chose focus once when an app pulled at you.'
+                  : 'You chose focus $urgesResisted times when an app pulled at you.',
               style: text.bodySmall,
             ),
           ],

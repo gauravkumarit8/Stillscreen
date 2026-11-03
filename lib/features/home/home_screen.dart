@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
+import '../../core/pause_suggestion.dart';
 import '../../core/streak_sync.dart';
 import '../../core/exam.dart';
 import '../../core/power/power_settings.dart';
@@ -36,6 +37,7 @@ import 'end_session_dialog.dart';
 import 'session_complete_dialog.dart';
 import '../stats/insight_cards.dart';
 import 'blocking_stopped_card.dart';
+import 'pause_suggestion_card.dart';
 import 'review_card.dart';
 import 'session_ring.dart';
 import 'start_guard_dialogs.dart';
@@ -480,6 +482,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ],
           if (!active && _permissionGranted && ref.watch(reviewCardVisibleProvider)) ...[
             const ReviewCard(),
+            const SizedBox(height: 16),
+          ],
+          if (!active &&
+              _permissionGranted &&
+              !ref.watch(reviewCardVisibleProvider) &&
+              ref.watch(pauseSuggestionVisibleProvider)) ...[
+            const PauseSuggestionCard(),
             const SizedBox(height: 16),
           ],
           SessionRing(

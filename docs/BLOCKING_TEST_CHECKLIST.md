@@ -51,6 +51,13 @@ and confirm the health check says **Blocking service: Running**.
 - [ ] With no streak and a long enough session, it says "Finish this session to start a streak."
 - [ ] Start a session after a long break. The streak line reflects the break (the streak resets after a missed full day).
 
+## Stats and suggestions
+
+- [ ] After tapping "Back to focus" a few times, Stats > This week says "You chose focus N times when an app pulled at you."
+- [ ] After two finished sessions, with the mindful pause off, the home screen shows "Try a mindful pause" once. "Set it up" opens the pause settings. "Not now" hides it for good.
+- [ ] With the mindful pause on, the suggestion never appears.
+- [ ] The suggestion and the rating card never show at the same time.
+
 ## Stillscreen itself
 
 - [ ] While a session runs, Stillscreen is not in the recent apps list. It reappears after the session ends.

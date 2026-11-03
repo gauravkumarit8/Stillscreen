@@ -262,6 +262,8 @@ class MainActivity : FlutterActivity() {
                         BlockStore.extendSession(this, (call.arguments as Number).toLong() * 60_000L)
                     )
 
+                    "focusChosenHistory" -> result.success(BlockStore.focusChosenHistory(this))
+
                     "setStreak" -> {
                         val a = call.arguments as? Map<*, *>
                         BlockStore.setStreak(

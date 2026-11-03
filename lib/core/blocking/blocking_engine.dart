@@ -1,4 +1,5 @@
 import '../block_diagnostics.dart';
+import '../focus_choices.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,6 +51,9 @@ abstract class BlockingEngine {
   /// Sends the exam to the block screens so they can count down to it. With no
   /// arguments it clears the exam.
   Future<void> setExam({String? name, int? year, int? month, int? day});
+
+  /// Days in the last two weeks on which the person chose focus.
+  Future<List<FocusChoice>> focusChosenHistory();
 
   /// Sends the streak to the block screens. Done when a session starts.
   Future<void> setStreak({
@@ -165,6 +169,15 @@ class AndroidBlockingEngine implements BlockingEngine {
   }
 
   @override
+  Future<List<FocusChoice>> focusChosenHistory() async {
+    final raw = await _channel.invokeListMethod<Object?>('focusChosenHistory');
+    return (raw ?? const <Object?>[])
+        .whereType<Map<Object?, Object?>>()
+        .map(FocusChoice.fromMap)
+        .toList();
+  }
+
+  @override
   Future<void> setStreak({
     required int days,
     required bool goalDone,
@@ -269,6 +282,9 @@ class PreviewBlockingEngine implements BlockingEngine {
 
   @override
   Future<void> setReason(String reason) async {}
+
+  @override
+  Future<List<FocusChoice>> focusChosenHistory() async => const [];
 
   @override
   Future<void> setStreak({
