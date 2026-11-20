@@ -225,8 +225,11 @@ class _WeekBars extends StatelessWidget {
     final days = stats.lastDays(7);
     final maxMinutes = days.map(stats.minutesOn).fold<int>(stats.todayGoal, max);
 
+    // The two small labels grow with the user's font size, so the chart
+    // grows with them instead of overflowing.
+    final labelHeight = MediaQuery.textScalerOf(context).scale(16);
     return SizedBox(
-      height: 140,
+      height: 110 + 2 * labelHeight,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [

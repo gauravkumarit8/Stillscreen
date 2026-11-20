@@ -15,6 +15,7 @@ class _GoalDialog extends ConsumerWidget {
     final current = ref.watch(goalHistoryProvider).goalOn(DateTime.now());
 
     return AlertDialog(
+      scrollable: true,
       title: const Text('Daily goal'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

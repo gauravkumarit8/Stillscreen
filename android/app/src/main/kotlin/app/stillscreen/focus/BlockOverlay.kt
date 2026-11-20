@@ -12,6 +12,7 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 /**
@@ -122,7 +123,7 @@ class BlockOverlay(private val service: AccessibilityService) {
             setOnClickListener { leave() }
         }
 
-        val root = object : LinearLayout(service) {
+        val scrollRoot = object : ScrollView(service) {
             // Back leaves, the same as the button, instead of revealing the app.
             override fun dispatchKeyEvent(event: KeyEvent): Boolean {
                 if (event.keyCode == KeyEvent.KEYCODE_BACK) {
@@ -132,12 +133,9 @@ class BlockOverlay(private val service: AccessibilityService) {
                 return super.dispatchKeyEvent(event)
             }
         }
-        return root.apply {
+        val content = LinearLayout(service).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            isFocusable = true
-            isFocusableInTouchMode = true
-            setBackgroundColor(0xFF14323A.toInt())
             setPadding(dp(24), dp(24), dp(24), dp(24))
             addView(message)
             BlockInfo.breathingViews(service).forEach { addView(it) }
@@ -151,6 +149,13 @@ class BlockOverlay(private val service: AccessibilityService) {
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
             )
+        }
+        return scrollRoot.apply {
+            isFillViewport = true
+            isFocusable = true
+            isFocusableInTouchMode = true
+            setBackgroundColor(0xFF14323A.toInt())
+            addView(content)
         }
     }
 }

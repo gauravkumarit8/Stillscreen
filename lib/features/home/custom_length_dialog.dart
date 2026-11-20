@@ -25,6 +25,7 @@ class _CustomLengthDialogState extends State<_CustomLengthDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Custom length'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

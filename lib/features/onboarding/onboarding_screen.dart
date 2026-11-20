@@ -28,28 +28,39 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final text = Theme.of(context).textTheme;
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const SizedBox(height: 16),
-              Text('How will you use Stillscreen?',
-                  style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Text('We will set up the app for you. You can switch later.',
-                  style: text.bodyLarge),
-              const SizedBox(height: 24),
-              for (final mode in UserMode.values) ...[
-                _ModeCard(
-                  mode: mode,
-                  selected: _selected == mode,
-                  onTap: () => setState(() => _selected = mode),
+        child: Column(
+          children: [
+            // The content scrolls, so nothing is ever cut off on short
+            // screens, in landscape or with a large font.
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('How will you use Stillscreen?',
+                        style: text.headlineMedium
+                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 8),
+                    Text('We will set up the app for you. You can switch later.',
+                        style: text.bodyLarge),
+                    const SizedBox(height: 24),
+                    for (final mode in UserMode.values) ...[
+                      _ModeCard(
+                        mode: mode,
+                        selected: _selected == mode,
+                        onTap: () => setState(() => _selected = mode),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 12),
-              ],
-              const Spacer(),
-              SizedBox(
+              ),
+            ),
+            // The button stays pinned at the bottom, always reachable.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              child: SizedBox(
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: _selected == null ? null : _continue,
@@ -59,8 +70,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -11,6 +11,7 @@ import android.window.OnBackInvokedDispatcher
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 /** Block screen for focus sessions and wind-down. Built in code, no layout files. */
@@ -77,7 +78,15 @@ class BlockActivity : Activity() {
                 )
             )
         }
-        setContentView(root)
+        // Scrollable, so small screens, big fonts and landscape still reach
+        // the button. fillViewport keeps the content centred when it fits.
+        setContentView(
+            ScrollView(this).apply {
+                isFillViewport = true
+                setBackgroundColor(0xFF14323A.toInt())
+                addView(root)
+            }
+        )
 
         // Android 13+ with predictive back never calls onBackPressed, so Back
         // would simply close this screen and reveal the blocked app. Register

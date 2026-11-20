@@ -608,33 +608,62 @@ class _StreakRow extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.local_fire_department_outlined,
-                  color: streak > 0 ? stillTeal : context.line,
-                ),
-                const SizedBox(width: 8),
-                Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                if (stats.freezes > 0) ...[
-                  const SizedBox(width: 10),
-                  Tooltip(
-                    message: 'Rest days saved: ${stats.freezes}',
+            LayoutBuilder(
+              builder: (context, box) => Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.local_fire_department_outlined,
+                    color: streak > 0 ? stillTeal : context.line,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.ac_unit, size: 16, color: stillTeal),
-                        const SizedBox(width: 2),
-                        Text('${stats.freezes}'),
+                        Flexible(
+                          child: Text(
+                            label,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        if (stats.freezes > 0) ...[
+                          const SizedBox(width: 10),
+                          Tooltip(
+                            message: 'Rest days saved: ${stats.freezes}',
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.ac_unit,
+                                    size: 16, color: stillTeal),
+                                const SizedBox(width: 2),
+                                Text('${stats.freezes}'),
+                              ],
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  // Never takes more than about half the row, so a large
+                  // font wraps this text instead of overflowing.
+                  ConstrainedBox(
+                    constraints:
+                        BoxConstraints(maxWidth: box.maxWidth * 0.5),
+                    child: Text(
+                      reached
+                          ? 'Goal reached'
+                          : '${stats.todayMinutes} of $goal min today',
+                      textAlign: TextAlign.end,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ],
-                const Spacer(),
-                Text(reached
-                    ? 'Goal reached'
-                    : '${stats.todayMinutes} of $goal min today'),
-              ],
+              ),
             ),
             const SizedBox(height: 10),
             LinearProgressIndicator(

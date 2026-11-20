@@ -32,6 +32,7 @@ Future<StartChoice> askBeforeStart(BuildContext context, StartCheck check) async
   final choice = await showDialog<StartChoice>(
     context: context,
     builder: (ctx) => AlertDialog(
+      scrollable: true,
       title: Text(title),
       content: Text(body),
       actions: [

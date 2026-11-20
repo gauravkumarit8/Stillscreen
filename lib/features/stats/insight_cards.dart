@@ -38,15 +38,33 @@ class LevelRow extends StatelessWidget {
         decoration: _frame(context),
         child: Column(
           children: [
-            Row(
-              children: [
-                const Icon(Icons.spa_outlined, color: stillTeal, size: 20),
-                const SizedBox(width: 8),
-                Text(level.label,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                const Spacer(),
-                Text(_toNext(level), style: Theme.of(context).textTheme.bodySmall),
-              ],
+            LayoutBuilder(
+              builder: (context, box) => Row(
+                children: [
+                  const Icon(Icons.spa_outlined, color: stillTeal, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      level.label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints:
+                        BoxConstraints(maxWidth: box.maxWidth * 0.5),
+                    child: Text(
+                      _toNext(level),
+                      textAlign: TextAlign.end,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 8),
             LinearProgressIndicator(

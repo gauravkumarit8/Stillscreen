@@ -48,6 +48,7 @@ class _EndSessionDialogState extends State<_EndSessionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('End this session early?'),
       content: const Text(
         'Take a breath first. You can still keep going, and minutes you have '

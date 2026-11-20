@@ -39,6 +39,7 @@ class _AddTimeDialogState extends ConsumerState<_AddTimeDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('Add offline focus time'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

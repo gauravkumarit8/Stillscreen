@@ -137,7 +137,8 @@ class _AppsScreenState extends ConsumerState<AppsScreen> {
         ),
         if (packs.isNotEmpty)
           SizedBox(
-            height: 48,
+            // Chips grow with the font size, so the bar does too.
+            height: MediaQuery.textScalerOf(context).scale(40) + 12,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),

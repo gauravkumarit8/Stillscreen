@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'app/responsive_frame.dart';
 import 'app/router.dart';
 import 'app/theme.dart';
 import 'core/prefs.dart';
@@ -30,6 +31,8 @@ class StillscreenApp extends ConsumerWidget {
       themeMode: ref.watch(themeModeProvider),
       routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
+      builder: (context, child) =>
+          ResponsiveFrame(child: child ?? const SizedBox.shrink()),
     );
   }
 }

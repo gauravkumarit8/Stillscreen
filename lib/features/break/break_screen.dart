@@ -61,9 +61,14 @@ class _BreakScreenState extends State<BreakScreen> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Break')),
-      body: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
+      body: LayoutBuilder(
+        builder: (context, box) => SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+                minHeight: box.maxHeight > 48 ? box.maxHeight - 48 : 0.0),
+            child: IntrinsicHeight(
+              child: Column(
           children: [
             const Spacer(),
             SizedBox(
@@ -107,6 +112,9 @@ class _BreakScreenState extends State<BreakScreen> {
               ),
             ),
           ],
+              ),
+            ),
+          ),
         ),
       ),
     );

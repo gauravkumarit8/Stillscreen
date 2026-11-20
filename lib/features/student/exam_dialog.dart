@@ -54,6 +54,7 @@ class _ExamDialogState extends ConsumerState<_ExamDialog> {
     final canSave = _name.text.trim().isNotEmpty && _date != null;
 
     return AlertDialog(
+      scrollable: true,
       title: const Text('Your exam'),
       content: Column(
         mainAxisSize: MainAxisSize.min,

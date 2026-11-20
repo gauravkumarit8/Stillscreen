@@ -36,6 +36,7 @@ class _ReasonDialogState extends ConsumerState<_ReasonDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
+      scrollable: true,
       title: const Text('My reminder'),
       content: Column(
         mainAxisSize: MainAxisSize.min,
